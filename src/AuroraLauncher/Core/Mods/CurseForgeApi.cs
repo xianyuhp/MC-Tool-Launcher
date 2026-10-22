@@ -37,37 +37,59 @@ public static class CurseForgeApi
         var key = ApiKey;
         Exception last = null;
 
-        var attempts = string.IsNullOrWhiteSpace(key)
-            ? new[] { (MirrorBase, false) }
-            : new[] { (OfficialBase, true), (MirrorBase, false) };
-
-        foreach (var (baseUrl, useKey) in attempts)
+        if (!string.IsNullOrWhiteSpace(key))
         {
-            try
+            // CurseForge 的 CDN 节点偶发返回 403 Forbidden: API Key missing or invalid
+            // （换一条连接再请求就正常），所以官方接口做几次快速重试，且重试时强制新建连接
+            for (var attempt = 1; attempt <= 3; attempt++)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + pathAndQuery);
-                if (useKey) request.Headers.TryAddWithoutValidation("x-api-key", key);
-                request.Headers.TryAddWithoutValidation("Accept", "application/json");
-                request.Headers.UserAgent.ParseAdd("MCTL/1.0");
-
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                cts.CancelAfter(TimeSpan.FromSeconds(20));
-                using var response = await McApi.Client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts.Token);
-                response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync(cts.Token);
-                LastUsedMirror = !useKey || baseUrl == MirrorBase;
-                return JsonDocument.Parse(json);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                last = ex;
+                try
+                {
+                    return await SendOnceAsync(OfficialBase, pathAndQuery, key, true, attempt > 1, ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    Logger.Warn($"CurseForge 官方接口第 {attempt} 次请求失败：{ex.Message}");
+                    if (attempt < 3) await Task.Delay(250 * attempt, ct);
+                }
             }
         }
+
+        // 没有 Key 或官方接口仍不可用时，退回 MCIM 社区镜像
+        try
+        {
+            return await SendOnceAsync(MirrorBase, pathAndQuery, null, false, false, ct);
+        }
+        catch (Exception ex)
+        {
+            last = ex;
+            Logger.Warn($"CurseForge 镜像请求失败：{ex.Message}");
+        }
+
         throw last ?? new Exception("CurseForge 接口不可用");
+    }
+
+    private static async Task<JsonDocument> SendOnceAsync(string baseUrl, string pathAndQuery, string key,
+        bool useKey, bool forceNewConnection, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + pathAndQuery);
+        if (useKey) request.Headers.TryAddWithoutValidation("x-api-key", key);
+        request.Headers.TryAddWithoutValidation("Accept", "application/json");
+        request.Headers.UserAgent.ParseAdd("MCTL/1.0");
+        if (forceNewConnection) request.Headers.ConnectionClose = true;
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(20));
+        using var response = await McApi.Client.SendAsync(request, HttpCompletionOption.ResponseContentRead, cts.Token);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync(cts.Token);
+        LastUsedMirror = baseUrl == MirrorBase;
+        return JsonDocument.Parse(json);
     }
 
     private static int LoaderType(string loader) => loader?.ToLowerInvariant() switch

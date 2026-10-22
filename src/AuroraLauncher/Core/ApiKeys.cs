@@ -12,6 +12,9 @@ namespace AuroraLauncher.Core;
 /// </summary>
 public static class ApiKeys
 {
+    // 首次访问时自动加载，避免调用方忘记先 Load()
+    static ApiKeys() => Load();
+
     public static string MicrosoftClientId { get; private set; } = "";
     public static string CurseForgeKey { get; private set; } = "";
 
