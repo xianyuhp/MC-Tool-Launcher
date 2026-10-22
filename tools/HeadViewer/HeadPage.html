@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TAL 3D 头部</title>
+<script type="importmap">
+{
+  "imports": {
+    "@daidr/minecraft-skin-renderer": "https://cdn.jsdelivr.net/npm/@daidr/minecraft-skin-renderer@0.3.2/+esm",
+    "@daidr/minecraft-skin-renderer/webgl": "https://cdn.jsdelivr.net/npm/@daidr/minecraft-skin-renderer@0.3.2/webgl/+esm"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; display: flex; flex-direction: column;
+    background: radial-gradient(900px 600px at 50% -10%, #26324c, #0d1119 62%);
+    color: #e8edf6; font: 13px/1.6 "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden; user-select: none;
+  }
+  header { padding: 16px 20px 0; display: flex; gap: 10px; align-items: center; }
+  h1 { font-size: 14px; font-weight: 600; margin: 0 auto 0 0; color: #cfd9e8; letter-spacing: .04em; }
+  input {
+    width: 220px; height: 34px; padding: 0 12px; border-radius: 9px; color: inherit;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+    outline: none; font: inherit;
+  }
+  input:focus { border-color: #5b9dff; }
+  button {
+    height: 34px; padding: 0 16px; border-radius: 9px; border: 0; cursor: pointer;
+    background: #3b82f6; color: #fff; font: inherit;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  .stage { position: relative; flex: 1 1 auto; margin: 14px 20px; overflow: hidden;
+           border-radius: 16px; border: 1px solid rgba(255,255,255,.09);
+           background: rgba(255,255,255,.035); }
+  .zoom { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  .shift { position: absolute; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; image-rendering: pixelated; }
+  canvas:active { cursor: grabbing; }
+  .hint { position: absolute; left: 14px; bottom: 10px; font-size: 11px; color: #8fa1ba; pointer-events: none; }
+  footer { padding: 0 20px 16px; font-size: 11.5px; color: #9fb0c8; min-height: 24px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>3D 头部预览</h1>
+    <input id="who" value="Notch" placeholder="正版 ID / UUID" />
+    <button id="go">渲染</button>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="zoom" id="zoom">
+      <div class="shift" id="shift">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+    <div class="hint">按住左键拖动旋转</div>
+  </div>
+
+  <footer id="status">准备中…</footer>
+
+<script type="module">
+  import { use, createSkinViewer } from "@daidr/minecraft-skin-renderer";
+  import { WebGLRendererPlugin } from "@daidr/minecraft-skin-renderer/webgl";
+
+  use(WebGLRendererPlugin);
+
+  const FOV = 18;          // 垂直视场角：小 FOV ≈ 长焦，接近正交
+  const DISTANCE = 150;    // 相机距离（库上限）
+  const TARGET_Y = 16;     // 库固定注视点
+  const HEAD_Y = 28;       // 头部立方体中心
+  const SUPERSAMPLE = 4;   // 内部超采样，保证拖动放大后依然清晰
+  const HEAD_FILL = 0.56;  // 头部约占舞台高度的比例
+  const PHI_MIN = 1.2;     // 俯仰角下限（约 69°），避免看到太多顶面导致溢出
+  const PHI_MAX = 1.95;    // 俯仰角上限（约 112°）
+
+  const stage = document.getElementById("stage");
+  const zoom = document.getElementById("zoom");
+  const shift = document.getElementById("shift");
+  const canvas = document.getElementById("canvas");
+  const status = document.getElementById("status");
+  const input = document.getElementById("who");
+  const go = document.getElementById("go");
+
+  let viewer = null;
+  let legacySkin = false;
+
+  const HEAD_URL = "https://api.mojang.com/users/profiles/minecraft/";
+  const PROFILE_URL = "https://sessionserver.mojang.com/session/minecraft/profile/";
+  const PLAYERDB_URL = "https://playerdb.co/api/player/minecraft/";
+  const CRAFTHEAD = "https://crafthead.net/skin/";
+  const CRAFATAR = "https://crafatar.com/skins/";
+
+  async function fetchJson(url, timeout) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+    if (!res.ok) throw new Error("接口返回 " + res.status);
+    return res.json();
+  }
+
+  async function resolveSkin(raw) {
+    const name = raw.trim();
+    if (!name) throw new Error("请输入正版 ID");
+
+    const compact = name.replace(/-/g, "");
+    if (/^[0-9a-f]{32}$/i.test(compact)) {
+      return { uuid: compact.toLowerCase(), name, skinUrl: CRAFTHEAD + compact.toLowerCase(), slim: false };
+    }
+
+    try {
+      const profile = await fetchJson(HEAD_URL + encodeURIComponent(name), 6000);
+      const detail = await fetchJson(PROFILE_URL + profile.id, 6000);
+      const prop = (detail.properties || []).find((p) => p.name === "textures");
+      if (prop) {
+        const json = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(prop.value), (c) => c.charCodeAt(0))));
+        const skin = json.textures && json.textures.SKIN;
+        if (skin && skin.url) {
+          return {
+            uuid: profile.id,
+            name: detail.name || profile.name,
+            skinUrl: skin.url,
+            slim: !!(skin.metadata && skin.metadata.model === "slim"),
+          };
+        }
+      }
+    } catch { /* 浏览器 CORS 限制，走镜像 */ }
+
+    const payload = await fetchJson(PLAYERDB_URL + encodeURIComponent(name), 8000);
+    const player = payload && payload.data && payload.data.player;
+    if (!player || !player.raw_id) throw new Error("找不到玩家「" + name + "」");
+    return {
+      uuid: player.raw_id,
+      name: player.username,
+      skinUrl: player.skin_texture || CRAFTHEAD + player.raw_id,
+      slim: false,
+    };
+  }
+
+  async function fetchSkin(url, uuid) {
+    for (const candidate of [url, CRAFTHEAD + uuid, CRAFATAR + uuid]) {
+      try {
+        const res = await fetch(candidate, { mode: "cors" });
+        if (res.ok) return await res.blob();
+      } catch { }
+    }
+    throw new Error("皮肤下载失败");
+  }
+
+  async function isLegacy(blob) {
+    try {
+      const bitmap = await createImageBitmap(blob);
+      const legacy = bitmap.width === bitmap.height * 2;
+      bitmap.close();
+      return legacy;
+    } catch { return false; }
+  }
+
+  /** 相机绕固定注视点旋转，靠 CSS 平移把头部挪到舞台正中。 */
+  function recenter() {
+    if (!viewer) return;
+    const height = stage.clientHeight || 1;
+    const phi = viewer.getRotation().phi;
+    const distance = viewer.getZoom();
+    const halfTan = Math.tan((FOV * Math.PI) / 360);
+    const ndc = ((HEAD_Y - TARGET_Y) * Math.sin(phi)) / (distance * halfTan);
+    // ndc > 0 表示头在画面中心上方，需要把画布向下平移同样距离
+    shift.style.transform = `translateY(${(ndc * height) / 2}px)`;
+
+    const headFraction = 8 / (2 * distance * halfTan);
+    zoom.style.transform = `scale(${HEAD_FILL / headFraction})`;
+  }
+
+  function resize() {
+    if (!viewer) return;
+    const width = stage.clientWidth;
+    const height = stage.clientHeight;
+    if (width < 2 || height < 2) return;
+    viewer.resize(width * SUPERSAMPLE, height * SUPERSAMPLE);
+    recenter();
+  }
+
+  async function create(profile) {
+    const blob = await fetchSkin(profile.skinUrl, profile.uuid);
+    const legacy = await isLegacy(blob);
+
+    // 复用已有渲染器：销毁后重建会让同一个 canvas 的 WebGL 上下文丢失
+    if (viewer) {
+      await viewer.setSkin(blob);
+      viewer.setSlim(profile.slim);
+      viewer.setPartVisibility("head", "outer", !legacy);
+      legacySkin = legacy;
+      status.textContent = `${profile.name} · ${profile.slim ? "纤细 Slim" : "经典 Classic"} · 按住左键拖动旋转`;
+      go.disabled = false;
+      return;
+    }
+
+    legacySkin = legacy;
+
+    viewer = await createSkinViewer({
+      canvas,
+      skin: blob,
+      slim: profile.slim,
+      preferredBackend: "webgl",
+      antialias: true,
+      pixelRatio: 1,
+      fov: FOV,
+      zoom: DISTANCE,
+      enableRotate: true,
+      enableZoom: false,
+      autoRotate: false,
+      backEquipment: "none",
+    });
+
+    viewer.setPartsVisibility({
+      head: { inner: true, outer: !legacySkin },
+      body: { inner: false, outer: false },
+      leftArm: { inner: false, outer: false },
+      rightArm: { inner: false, outer: false },
+      leftLeg: { inner: false, outer: false },
+      rightLeg: { inner: false, outer: false },
+    });
+    viewer.setBackEquipment("none");
+    viewer.setRotation(-0.35, Math.acos((HEAD_Y - TARGET_Y) / DISTANCE));
+    viewer.setZoom(DISTANCE);
+    // 限制俯仰范围：往下/往上拖太多会看到大片顶面，头部会超出取景框
+    viewer.onRotationChange = (theta, phi) => {
+      const clamped = Math.min(Math.max(phi, PHI_MIN), PHI_MAX);
+      if (Math.abs(clamped - phi) > 0.002) viewer.setRotation(theta, clamped);
+      recenter();
+    };
+    viewer.startRenderLoop();
+
+    resize();
+    status.textContent = `${profile.name} · ${profile.slim ? "纤细 Slim" : "经典 Classic"} · 按住左键拖动旋转`;
+    go.disabled = false;
+  }
+
+  async function render() {
+    go.disabled = true;
+    status.textContent = "解析账号 → 拉取皮肤 → 渲染中…";
+    try {
+      const profile = await resolveSkin(input.value);
+      await create(profile);
+    } catch (error) {
+      status.textContent = "失败：" + error.message;
+      go.disabled = false;
+    }
+  }
+
+  go.addEventListener("click", render);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") render(); });
+  window.addEventListener("resize", resize);
+
+  render();
+</script>
+</body>
+</html>

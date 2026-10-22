@@ -1,0 +1,54 @@
+<Window x:Class="AuroraLauncher.Views.ServerConsoleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="920" Height="620" WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="CanResize"
+        KeyDown="Window_KeyDown" Closing="Window_Closing">
+    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="12"
+            BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1">
+        <Grid Margin="18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" MouseLeftButtonDown="Header_MouseDown">
+                <StackPanel>
+                    <TextBlock x:Name="TitleText" Text="服务端后台" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+                    <TextBlock x:Name="InfoText" FontSize="11" Margin="0,3,0,0"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="StateText" Text="未运行" FontSize="11" VerticalAlignment="Center"
+                               Margin="0,0,12,0" Foreground="{DynamicResource SubTextBrush}" />
+                    <Button Content="重启" Style="{StaticResource Btn}" Padding="12,5" Click="Restart_Click" />
+                    <Button Content="停止" Style="{StaticResource Btn}" Padding="12,5" Margin="8,0,0,0"
+                            Click="Stop_Click" />
+                    <Button Content="清空" Style="{StaticResource Btn}" Padding="12,5" Margin="8,0,0,0"
+                            Click="Clear_Click" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Grid.Row="1" Text="控制台输出（可直接输入原版 / 插件命令，例如 stop、list、say 内容）"
+                       FontSize="10" Margin="0,12,0,6" Foreground="{DynamicResource SubTextBrush}" />
+
+            <TextBox x:Name="OutputBox" Grid.Row="2" Style="{StaticResource Input}" IsReadOnly="True"
+                     Background="{DynamicResource InputBrush}" FontFamily="Consolas" FontSize="11"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                     TextWrapping="NoWrap" AcceptsReturn="True" />
+
+            <Grid Grid.Row="3" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="CommandBox" Grid.Column="0" Style="{StaticResource Input}"
+                         KeyDown="CommandBox_KeyDown" ToolTip="输入命令后回车发送" />
+                <Button Grid.Column="1" Content="发送" Style="{StaticResource PrimaryBtn}" Margin="8,0,0,0"
+                        Padding="18,7" Click="Send_Click" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

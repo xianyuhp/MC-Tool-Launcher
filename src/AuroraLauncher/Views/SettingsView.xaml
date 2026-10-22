@@ -1,0 +1,277 @@
+<UserControl x:Class="AuroraLauncher.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="6,2,14,24" MaxWidth="1180" HorizontalAlignment="Left">
+            <TextBlock Text="设置" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource HeadingBrush}" Margin="4,0,0,0" />
+            <TextBlock Text="外观、背景、音乐与游戏参数都会自动保存。" Margin="4,6,0,0" FontSize="12"
+                       Foreground="{DynamicResource SubTextBrush}" />
+
+            <!-- 外观 -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Background="#1A5B8CFF">
+                <StackPanel>
+                    <TextBlock Text="外观 · 玻璃面板" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+                    <CheckBox x:Name="AcrylicChk" Content="一键启用透明玻璃面板（关闭后为不透明纯色）"
+                              Margin="0,10,0,0" Checked="Acrylic_Changed" Unchecked="Acrylic_Changed" />
+
+                    <Grid Margin="0,10,0,0">
+                        <TextBlock Text="玻璃浓度（越大越不透明）" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="AcrylicValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="AcrylicSlider" Minimum="0" Maximum="100" TickFrequency="1"
+                            ValueChanged="AcrylicSlider_ValueChanged" />
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="背景图片" FontSize="12" Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="选择图片" Style="{StaticResource Btn}" Padding="12,6" Click="PickBackground_Click" />
+                            <Button Content="清除" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0" Click="ClearBackground_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="BackgroundPath" Text="未设置" FontSize="11" Margin="0,6,0,0"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SubTextBrush}" />
+
+                    <Grid Margin="0,10,0,0">
+                        <TextBlock Text="背景不透明度" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="BackgroundOpacityValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="BackgroundOpacitySlider" Minimum="0" Maximum="100"
+                            ValueChanged="BackgroundOpacity_ValueChanged" />
+
+                    <Grid Margin="0,10,0,0">
+                        <TextBlock Text="背景模糊" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="BackgroundBlurValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="BackgroundBlurSlider" Minimum="0" Maximum="40"
+                            ValueChanged="BackgroundBlur_ValueChanged" />
+
+                    <TextBlock Text="主题模式" FontSize="12" Margin="0,14,0,6" Foreground="{DynamicResource SubTextBrush}" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="ThemeLight" Style="{StaticResource Chip}" Content="白天"
+                                     GroupName="theme" Checked="Theme_Changed" />
+                        <RadioButton x:Name="ThemeDark" Style="{StaticResource Chip}" Content="黑夜"
+                                     GroupName="theme" Checked="Theme_Changed" />
+                    </StackPanel>
+
+                    <CheckBox x:Name="HomeLogChk" Content="主页显示运行日志（默认关闭；关闭后主页内容自动铺满）"
+                              Margin="0,12,0,0" Checked="HomeLog_Changed" Unchecked="HomeLog_Changed" />
+
+                    <CheckBox x:Name="Skin3DChk" Content="主页右侧显示 3D 皮肤预览（可拖动旋转，默认开启）"
+                              Margin="0,8,0,0" Checked="Skin3D_Changed" Unchecked="Skin3D_Changed" />
+
+
+                    <TextBlock Text="主题色" FontSize="12" Margin="0,14,0,0" Foreground="{DynamicResource SubTextBrush}" />
+                    <WrapPanel x:Name="ColorPanel" Margin="0,8,0,0" />
+
+                    <TextBlock Text="组件透明度（越高越不透明）" FontSize="12" Margin="0,14,0,0"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <Grid Margin="0,8,0,0">
+                        <TextBlock Text="卡片" FontSize="11" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="CardOpacityValue" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="CardOpacitySlider" Minimum="10" Maximum="100" TickFrequency="1"
+                            ValueChanged="CardOpacity_ValueChanged" />
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="侧边栏" FontSize="11" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="SidebarOpacityValue" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="SidebarOpacitySlider" Minimum="0" Maximum="100" TickFrequency="1"
+                            ValueChanged="SidebarOpacity_ValueChanged" />
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="标题栏" FontSize="11" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="TitleBarOpacityValue" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="TitleBarOpacitySlider" Minimum="0" Maximum="100" TickFrequency="1"
+                            ValueChanged="TitleBarOpacity_ValueChanged" />
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="页面内容" FontSize="11" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="ContentOpacityValue" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="ContentOpacitySlider" Minimum="20" Maximum="100" TickFrequency="1"
+                            ValueChanged="ContentOpacity_ValueChanged" />
+                </StackPanel>
+            </Border>
+
+            <!-- 音乐 -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Background="#1A8B5CF6">
+                <StackPanel>
+                    <TextBlock Text="音乐播放" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+                    <TextBlock Text="把 mp3 / wav / wma / m4a 放入音乐文件夹即可自动扫描（支持子文件夹）。"
+                               FontSize="11" Margin="0,6,0,0" Foreground="{DynamicResource SubTextBrush}" />
+                    <TextBlock x:Name="MusicFolderText" Text="—" FontSize="11" Margin="0,8,0,0"
+                               TextTrimming="CharacterEllipsis" Foreground="{DynamicResource SubTextBrush}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="选择文件夹" Style="{StaticResource Btn}" Padding="12,6" Click="PickMusicFolder_Click" />
+                        <Button Content="打开文件夹" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0" Click="OpenMusicFolder_Click" />
+                        <Button Content="重新扫描" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0" Click="RescanMusic_Click" />
+                    </StackPanel>
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="音量" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="VolumeValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" ValueChanged="Volume_ValueChanged" />
+                    <CheckBox x:Name="AutoPlayChk" Content="启动时自动播放" Checked="AutoPlay_Changed" Unchecked="AutoPlay_Changed" />
+                    <CheckBox x:Name="RainbowChk" Content="播放音乐时标题文字彩色渐变（流动彩虹字）"
+                              Checked="Rainbow_Changed" Unchecked="Rainbow_Changed" />
+                    <TextBlock x:Name="MusicStatus" Text="曲目：0 首" FontSize="11" Margin="0,6,0,0"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 游戏 -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0" Background="#1A22C7A9">
+                <StackPanel>
+                    <TextBlock Text="游戏与 Java" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="游戏目录（.minecraft，可添加多个）" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="添加目录" Style="{StaticResource Btn}" Padding="12,6" Click="AddGameFolder_Click" />
+                            <Button Content="设为主目录" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0"
+                                    Click="SetPrimaryFolder_Click" />
+                            <Button Content="移除" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0"
+                                    Click="RemoveGameFolder_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <ListBox x:Name="FolderList" Style="{StaticResource DarkList}"
+                             ItemContainerStyle="{StaticResource DarkItem}" Height="96" Margin="0,8,0,0" FontSize="11" />
+                    <TextBlock Text="主页会列出所有目录中的版本；下载页可选择安装到哪个目录。"
+                               FontSize="10" Margin="0,6,0,0" Foreground="{DynamicResource SubTextBrush}" />
+
+                    <TextBlock Text="下载源" FontSize="12" Margin="0,14,0,6"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <StackPanel Orientation="Horizontal">
+                        <RadioButton x:Name="MirrorAuto" Style="{StaticResource Chip}" Content="自动（BMCLAPI 镜像）"
+                                     GroupName="mirror" Checked="Mirror_Changed" />
+                        <RadioButton x:Name="MirrorOfficial" Style="{StaticResource Chip}" Content="仅官方源"
+                                     GroupName="mirror" Checked="Mirror_Changed" />
+                    </StackPanel>
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="模组 / 插件每页展示数量（默认 15）" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="ModPageSizeValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="ModPageSizeSlider" Minimum="10" Maximum="25" TickFrequency="1"
+                            IsSnapToTickEnabled="True" ValueChanged="ModPageSize_ValueChanged" />
+
+                    <CheckBox x:Name="MultiThreadChk" Content="多线程下载加速（类似 Motrix，分段并发下载）"
+                              Checked="MultiThread_Changed" Unchecked="MultiThread_Changed" />
+                    <Grid Margin="0,6,0,0">
+                        <TextBlock Text="下载线程数" FontSize="11" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="ThreadsValue" HorizontalAlignment="Right" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="ThreadsSlider" Minimum="2" Maximum="16" TickFrequency="1"
+                            IsSnapToTickEnabled="True" ValueChanged="Threads_ValueChanged" />
+
+                    <TextBlock Text="CurseForge API Key（早期开发测试用，可选；留空时使用 MCIM 镜像通道）" FontSize="12" Margin="0,14,0,6"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="CurseForgeKeyBox" Style="{StaticResource Input}" Height="32" FontSize="11"
+                                 ToolTip="仅供早期开发测试使用；CurseForge 官方接口需要 API Key，申请：console.curseforge.com" />
+                        <Button Grid.Column="1" Content="保存" Style="{StaticResource Btn}" Margin="8,0,0,0"
+                                Padding="14,6" Click="SaveCurseForgeKey_Click" />
+                    </Grid>
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock x:Name="NameTableHint" Text="模组中文名表：—" FontSize="11"
+                                   Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center" />
+                        <Button Content="更新中文名表" Style="{StaticResource Btn}" HorizontalAlignment="Right"
+                                Padding="12,6" Click="UpdateNameTable_Click" />
+                    </Grid>
+
+                    <TextBlock Text="模组文件名前缀（只作用于新下载的文件，不重命名已有文件）" FontSize="12" Margin="0,14,0,6"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <ComboBox x:Name="ModPrefixCombo" Width="330" HorizontalAlignment="Left" FontSize="12"
+                              SelectionChanged="ModPrefix_Changed">
+                        <ComboBoxItem Content="中文前缀：[中文名] 原文件名" Tag="chinese" />
+                        <ComboBoxItem Content="英文前缀：[英文名] 原文件名" Tag="english" />
+                        <ComboBoxItem Content="不添加前缀（原始文件名）" Tag="none" />
+                    </ComboBox>
+                    <TextBlock Text="若模组加载异常（如 Inventory HUD+、1.7.10 的 NEI），可关闭此选项。"
+                               FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SubTextBrush}" />
+
+                    <TextBlock Text="Java 运行时（自动检测，可选一个）" FontSize="12" Margin="0,12,0,6"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <CheckBox x:Name="JavaAutoChk" Content="自动选择 Java（按版本要求挑选最合适的运行时）"
+                              Checked="JavaAuto_Changed" Unchecked="JavaAuto_Changed" />
+                    <ListBox x:Name="JavaList" Style="{StaticResource DarkList}" ItemContainerStyle="{StaticResource DarkItem}"
+                             Height="96" SelectionChanged="JavaList_SelectionChanged" FontSize="11" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="重新检测" Style="{StaticResource Btn}" Padding="12,6" Click="RescanJava_Click" />
+                        <Button Content="手动选择 java.exe" Style="{StaticResource Btn}" Padding="12,6" Margin="8,0,0,0"
+                                Click="PickJava_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="JavaHint" Text="" FontSize="11" Margin="0,6,0,0"
+                               Foreground="{DynamicResource SubTextBrush}" />
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="内存分配" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                        <TextBlock x:Name="MemoryValue" HorizontalAlignment="Right" FontSize="12"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                    </Grid>
+                    <Slider x:Name="MemorySlider" Minimum="1" Maximum="32" TickFrequency="1"
+                            IsSnapToTickEnabled="True" ValueChanged="Memory_ValueChanged" />
+
+                    <TextBlock Text="玩家名（离线模式）" FontSize="11" Margin="0,10,0,0"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <TextBox x:Name="PlayerNameBox" Style="{StaticResource Input}" Width="320" Height="32"
+                             HorizontalAlignment="Left" Margin="0,6,0,0" FontSize="12"
+                             TextChanged="PlayerName_Changed" />
+
+                    <Grid Margin="0,12,0,0">
+                        <TextBlock Text="窗口尺寸" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SubTextBrush}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBox x:Name="WidthBox" Style="{StaticResource Input}" Width="56" Height="32"
+                                     FontSize="11" TextAlignment="Center" TextChanged="Resolution_Changed" />
+                            <TextBlock Text="×" Margin="6,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SubTextBrush}" />
+                            <TextBox x:Name="HeightBox" Style="{StaticResource Input}" Width="56" Height="32"
+                                     FontSize="11" TextAlignment="Center" TextChanged="Resolution_Changed" />
+                        </StackPanel>
+                    </Grid>
+                    <CheckBox x:Name="FullscreenChk" Content="全屏启动" Checked="Fullscreen_Changed" Unchecked="Fullscreen_Changed" />
+                    <CheckBox x:Name="IsolationChk" Content="版本隔离（每个版本独立的 mods / 存档 / 配置，默认开启）"
+                              Checked="Isolation_Changed" Unchecked="Isolation_Changed" />
+                    <CheckBox x:Name="ChineseChk" Content="游戏内默认使用简体中文（写入 options.txt，可关闭）"
+                              Checked="Chinese_Changed" Unchecked="Chinese_Changed" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Margin="0,0,20,0">
+                        <TextBlock Text="关于" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource HeadingBrush}" />
+                        <TextBlock Text="MC Tool Launcher（MCTL）· 一款综合性功能的 MC 启动器"
+                                   FontSize="11" Margin="0,8,0,0"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource SubTextBrush}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="立即保存" Style="{StaticResource PrimaryBtn}"
+                            VerticalAlignment="Center" Padding="18,8" Click="Save_Click" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

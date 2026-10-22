@@ -1,0 +1,30 @@
+# ---- 构建输出 ----
+[Bb]in/
+[Oo]bj/
+dist/
+publish/
+publish-lite/
+publish-head/
+*.pdb
+*.user
+*.suo
+.vs/
+
+# ---- 本地环境 / 临时目录 ----
+.dotnet/
+.env/
+.tmp/
+work/
+probe/
+.screenshots/
+node_modules/
+
+# ---- 运行数据与日志 ----
+logs/
+config/
+*.log
+
+# ---- 不公开的参考源码 / 调试截图 ----
+src_off/
+src_workflow/
+tools/*.png

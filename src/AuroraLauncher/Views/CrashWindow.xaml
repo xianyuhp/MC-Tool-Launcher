@@ -1,0 +1,56 @@
+<Window x:Class="AuroraLauncher.Views.CrashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="游戏崩溃" Width="760" Height="600"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize">
+
+    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="12" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1">
+        <Grid Margin="26">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" MouseLeftButtonDown="Header_MouseDown">
+                <Border Width="42" Height="42" CornerRadius="12" Background="#33FF6B6B">
+                    <TextBlock Text="!" FontSize="19" FontWeight="Bold" Foreground="#FFFF8A8A"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="游戏异常退出" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="SubTitle" FontSize="12" Foreground="{DynamicResource SubTextBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+            </StackPanel>
+
+            <TextBlock Grid.Row="1" Margin="0,16,0,6" Foreground="{DynamicResource SubTextBrush}"
+                       Text="选择需要导出的日志，导出后可直接发给整合包作者或开发者排查问题。" TextWrapping="Wrap" />
+
+            <WrapPanel Grid.Row="2" Margin="0,4,0,8">
+                <CheckBox x:Name="ChkLauncher" Content="启动器日志" IsChecked="True" Margin="0,4,22,4" />
+                <CheckBox x:Name="ChkPreCrash" Content="崩溃前日志（进程最后输出）" IsChecked="True" Margin="0,4,22,4" />
+                <CheckBox x:Name="ChkGame" Content="游戏日志 latest.log" IsChecked="True" Margin="0,4,22,4" />
+                <CheckBox x:Name="ChkReport" Content="崩溃报告 crash-report" IsChecked="True" Margin="0,4,22,4" />
+            </WrapPanel>
+
+            <Border Grid.Row="3" Background="{DynamicResource InputBrush}" CornerRadius="10" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                <TextBox x:Name="Preview" IsReadOnly="True" Background="Transparent" BorderThickness="0"
+                         Foreground="{DynamicResource TextBrush}" FontFamily="Consolas" FontSize="12" Padding="12"
+                         VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" />
+            </Border>
+
+            <Grid Grid.Row="4" Margin="0,16,0,0">
+                <TextBlock x:Name="Status" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource SubTextBrush}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="打开游戏目录" Style="{StaticResource Btn}" Margin="0,0,8,0" Click="OpenGameDir_Click" />
+                    <Button Content="关闭" Style="{StaticResource Btn}" Margin="0,0,8,0" Click="Close_Click" />
+                    <Button Content="导出日志" Style="{StaticResource PrimaryBtn}" Click="Export_Click" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
+

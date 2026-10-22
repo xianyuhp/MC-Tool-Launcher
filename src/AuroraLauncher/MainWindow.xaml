@@ -1,0 +1,99 @@
+<Window x:Class="AuroraLauncher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="MC Tool Launcher" Width="1220" Height="780" MinWidth="940" MinHeight="600"
+        WindowStyle="None" ResizeMode="CanResize" Background="#01000000"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        WindowStartupLocation="CenterScreen" PreviewKeyDown="Window_PreviewKeyDown">
+
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Grid>
+        <!-- 背景图 -->
+        <Image x:Name="BgImage" Stretch="UniformToFill" Opacity="0" />
+
+        <!-- 可读性渐变（随主题色变化） -->
+        <Border x:Name="FrostLayer" Background="#B00C1220" />
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="48" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Grid x:Name="TitleBarLayer" Grid.Row="0" Background="#00FFFFFF" MouseLeftButtonDown="TitleBar_MouseDown">
+                <StackPanel Orientation="Horizontal" Margin="20,0,0,0" VerticalAlignment="Center">
+                    <Image Source="app.ico" Width="22" Height="22"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="MCTL" Margin="10,0,0,0" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Foreground="{DynamicResource HeadingBrush}" />
+                    <TextBlock x:Name="VersionTag" Text="1.0" Margin="8,1,0,0" FontSize="11"
+                               Foreground="{DynamicResource HeadingBrush}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="0,0,8,0" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Border Width="170" ClipToBounds="True" VerticalAlignment="Center">
+                        <TextBlock x:Name="TrackText" Text="未在播放" FontSize="11" TextAlignment="Left"
+                                   Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center">
+                            <TextBlock.RenderTransform>
+                                <TranslateTransform x:Name="TrackShift" />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="🔊" FontSize="11" Margin="10,0,4,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <Slider x:Name="VolumeMini" Width="56" Minimum="0" Maximum="100" VerticalAlignment="Center"
+                            Margin="0,0,10,0" ToolTip="音乐音量" ValueChanged="VolumeMini_Changed" />
+                    <Button Content="⏮" Style="{StaticResource IconBtn}" Click="Prev_Click" Margin="0,0,4,0" ToolTip="上一首" />
+                    <Button x:Name="BtnPlay" Content="▶" Style="{StaticResource IconBtn}" Click="PlayPause_Click" ToolTip="播放 / 暂停" />
+                    <Button Content="⏭" Style="{StaticResource IconBtn}" Click="Next_Click" Margin="4,0,12,0" ToolTip="下一首" />
+                    <Rectangle Width="1" Height="18" Fill="#22FFFFFF" Margin="0,0,10,0" />
+                    <Button x:Name="ThemeBtn" Content="🌙" Style="{StaticResource IconBtn}" Click="Theme_Click"
+                            ToolTip="切换白天 / 黑夜" Margin="0,0,4,0" />
+                    <Button Content="—" Style="{StaticResource IconBtn}" Click="Min_Click" ToolTip="最小化" />
+                    <Button Content="▢" Style="{StaticResource IconBtn}" Click="Max_Click" Margin="2,0" ToolTip="最大化" />
+                    <Button Content="✕" Style="{StaticResource IconBtn}" Click="Close_Click" ToolTip="关闭" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 主体 -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="86" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border x:Name="SidebarLayer" Grid.Column="0" Background="#14FFFFFF" CornerRadius="12" Margin="8,4,0,8"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                    <StackPanel Margin="0,12">
+                        <RadioButton x:Name="NavHome" Style="{StaticResource Nav}" Tag="🏠" Content="主页"
+                                     GroupName="nav" IsChecked="True" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavDownload" Style="{StaticResource Nav}" Tag="⬇" Content="下载"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavLibrary" Style="{StaticResource Nav}" Tag="🎮" Content="游戏库"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavSteam" Style="{StaticResource Nav}" Tag="🛒" Content="Steam"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavToolbox" Style="{StaticResource Nav}" Tag="🧰" Content="工具箱"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavColor" Style="{StaticResource Nav}" Tag="🎨" Content="字色"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavCommand" Style="{StaticResource Nav}" Tag="🧾" Content="指令"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavServer" Style="{StaticResource Nav}" Tag="🗄" Content="开服"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                        <RadioButton x:Name="NavSettings" Style="{StaticResource Nav}" Tag="⚙" Content="设置"
+                                     GroupName="nav" Checked="Nav_Checked" />
+                    </StackPanel>
+                </Border>
+
+                <ContentControl x:Name="PageHost" Grid.Column="1" Margin="10,4,8,8" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

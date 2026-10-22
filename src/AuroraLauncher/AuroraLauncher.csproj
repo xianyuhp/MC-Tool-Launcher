@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MCTL</AssemblyName>
+    <RootNamespace>AuroraLauncher</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <Version>1.30.0</Version>
+    <Product>MC Tool Launcher</Product>
+    <Company>Aurora</Company>
+    <FileVersion>1.30.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 模组中文名种子表（由 PCL 公开的 MC 百科条目数据整理而来） -->
+    <EmbeddedResource Include="Core\Mods\modnames.seed.json" />
+    <!-- 界面标题栏使用的图标（exe 图标由 ApplicationIcon 指定） -->
+    <Resource Include="app.ico" />
+    <!-- 内置默认皮肤，首次启动无需联网即可用正确贴图建模 -->
+    <EmbeddedResource Include="Assets\default-skin.png" />
+  </ItemGroup>
+
+</Project>
+
