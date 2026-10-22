@@ -1,7 +1,36 @@
-# MC Tool Launcher (MCTL)
+﻿# MC Tool Launcher (MCTL)
 
 一款综合性功能的 Minecraft 启动器，使用 **WPF / .NET 10** 编写。
-当前版本：**1.30**（`AssemblyName = MCTL`）
+当前版本：**1.31**（`AssemblyName = MCTL`）
+
+---
+
+## 开源版本：请自备 API 凭据
+
+公开仓库**不内置**任何官方 API 凭据，自己构建得到的是「开源版本」，启动时会弹窗提示填写：
+
+| 功能 | 需要填写 | 申请地址 |
+| --- | --- | --- |
+| 微软正版登录 | 应用注册的 Application (client) ID（账户类型选「个人 Microsoft 账户」，并允许公共客户端流） | <https://portal.azure.com> → 应用注册 |
+| CurseForge 官方接口 | CurseForge API Key（不填时只走 MCIM 社区镜像，仍可搜索下载） | <https://console.curseforge.com/> |
+
+填写方式（任选一种）：
+
+1. 启动后按提示在「开源版本 · API 凭据」窗口里填写，点「保存并应用」（立即生效）；
+2. 设置 → 游戏与 Java → 点「配置微软 / CurseForge 凭据（开源版本）」；
+3. 直接编辑 `config/api-keys.json`（首次打开窗口会自动生成模板）：
+
+```json
+{
+  "MicrosoftClientId": "你的 Application (client) ID",
+  "CurseForgeApiKey": "你的 CurseForge API Key"
+}
+```
+
+4. 或使用环境变量 `MCTL_MS_CLIENT_ID`、`MCTL_CURSEFORGE_KEY`。
+
+> `config/api-keys.json` 已在 `.gitignore` 中忽略，填写后不会被提交到仓库。
+> 未配置微软客户端 ID 时，正版登录会给出明确提示；未配置 CurseForge Key 时只使用社区镜像。
 
 ---
 

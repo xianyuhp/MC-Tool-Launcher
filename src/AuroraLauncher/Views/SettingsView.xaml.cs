@@ -376,6 +376,15 @@ public partial class SettingsView : UserControl, IRefreshable
             : "已保存 API Key，CurseForge 将优先使用官方接口。", "CurseForge");
     }
 
+    /// <summary>打开开源版本的 API 凭据填写窗口（微软客户端 ID / CurseForge Key）。</summary>
+    private void OpenApiKeys_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new ApiKeysWindow { Owner = Window.GetWindow(this) };
+        window.ShowDialog();
+        // 窗口里保存的 CurseForge Key 会同步到设置里，这里刷新输入框显示
+        CurseForgeKeyBox.Text = Settings.Current.CurseForgeApiKey;
+    }
+
     private async void UpdateNameTable_Click(object sender, RoutedEventArgs e)
     {
         NameTableHint.Text = "正在更新模组中文名表…";

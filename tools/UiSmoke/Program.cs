@@ -21,6 +21,8 @@ internal static class Program
             return CommandCheck();
         if (args.Length > 0 && args[0] == "cmdnames")
             return CommandNamesCheck();
+        if (args.Length > 0 && args[0] == "apikeys")
+            return ApiKeysCheck();
         if (args.Length > 2 && args[0] == "dl")
             return DownloadCheck(args[1], args[2]).GetAwaiter().GetResult();
         if (args.Length > 2 && args[0] == "importpack")
@@ -827,6 +829,40 @@ internal static class Program
             Console.WriteLine("DL FAILED " + ex.Message);
             return 1;
         }
+    }
+
+    /// <summary>开源版本 API 凭据：默认应为「未配置」，保存后可读回，窗口能正常构造。</summary>
+    private static int ApiKeysCheck()
+    {
+        Settings.Load();
+        Settings.Current.CurseForgeApiKey = "";
+        AuroraLauncher.Core.ApiKeys.Load();
+
+        Console.WriteLine($"msReady={AuroraLauncher.Core.ApiKeys.MicrosoftReady} " +
+                          $"cfReady={AuroraLauncher.Core.ApiKeys.CurseForgeReady} " +
+                          $"needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
+        Console.WriteLine("path=" + AuroraLauncher.Core.ApiKeys.FilePath);
+        var ok = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+
+        var app = new AuroraLauncher.App();
+        app.InitializeComponent();
+        new AuroraLauncher.Views.ApiKeysWindow().Close();
+
+        AuroraLauncher.Core.ApiKeys.Save("test-client-id", "test-key");
+        AuroraLauncher.Core.ApiKeys.Load();
+        var text = File.ReadAllText(AuroraLauncher.Core.ApiKeys.FilePath);
+        var saved = AuroraLauncher.Core.ApiKeys.MicrosoftClientId == "test-client-id" &&
+                    AuroraLauncher.Core.ApiKeys.CurseForgeKey == "test-key" &&
+                    text.Contains("test-key", StringComparison.Ordinal);
+        Console.WriteLine($"afterSave ms={AuroraLauncher.Core.ApiKeys.MicrosoftClientId} " +
+                          $"cf={AuroraLauncher.Core.ApiKeys.CurseForgeKey} needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
+
+        File.Delete(AuroraLauncher.Core.ApiKeys.FilePath);
+        AuroraLauncher.Core.ApiKeys.Load();
+        var cleared = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+
+        Console.WriteLine(ok && saved && cleared ? "APIKEYS OK" : "APIKEYS FAIL");
+        return ok && saved && cleared ? 0 : 1;
     }
 
     private static int CommandNamesCheck()

@@ -189,6 +189,12 @@
                                 Padding="14,6" Click="SaveCurseForgeKey_Click" />
                     </Grid>
 
+                    <Button Content="配置微软 / CurseForge 凭据（开源版本）" Style="{StaticResource Btn}"
+                            HorizontalAlignment="Left" Padding="12,6" Margin="0,8,0,0" Click="OpenApiKeys_Click" />
+                    <TextBlock Text="公开仓库不内置官方凭据：微软登录与 CurseForge 官方接口需要填写你自己申请的 ID / Key。"
+                               FontSize="10" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SubTextBrush}" />
+
                     <Grid Margin="0,12,0,0">
                         <TextBlock x:Name="NameTableHint" Text="模组中文名表：—" FontSize="11"
                                    Foreground="{DynamicResource SubTextBrush}" VerticalAlignment="Center" />

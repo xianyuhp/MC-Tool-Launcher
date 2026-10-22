@@ -15,8 +15,9 @@ public record MinecraftAccount(string Name, string Uuid, string AccessToken, str
 /// <summary>微软正版登录：设备代码流 + Xbox Live / XSTS / Minecraft Services 链路。</summary>
 public static class MicrosoftAuth
 {
-    // 沿用 PCL 官方启动器的公开客户端 ID（设备代码流无需密钥）
-    private const string ClientId = "fe72edc2-3a6f-4280-90e8-e2beb64ce7e1";
+    // 客户端 ID 由使用者自行申请（Azure 应用注册，设备代码流无需密钥），开源版本不内置。
+    // 填写位置：config/api-keys.json 的 MicrosoftClientId，或环境变量 MCTL_MS_CLIENT_ID。
+    private static string ClientId => ApiKeys.MicrosoftClientId;
     private const string Scope = "XboxLive.signin offline_access";
     private const string DeviceCodeUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
     private const string TokenUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
@@ -25,6 +26,10 @@ public static class MicrosoftAuth
 
     public static async Task<MsDeviceCode> RequestDeviceCodeAsync(CancellationToken ct)
     {
+        if (!ApiKeys.MicrosoftReady)
+            throw new Exception("尚未配置微软客户端 ID。\n请在「设置 → API 凭据」中填写自己申请的应用 ID，" +
+                                $"或编辑：{ApiKeys.FilePath}");
+
         using var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["client_id"] = ClientId,

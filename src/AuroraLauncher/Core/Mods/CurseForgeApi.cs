@@ -13,26 +13,17 @@ public static class CurseForgeApi
     private const int MinecraftGameId = 432;
 
     /// <summary>
-    /// 内置 CurseForge API Key（与 PCL 相同的做法：Base64 存放，避免明文直接出现在源码中）。
-    /// 设置里填写了自定义 Key 时优先使用自定义 Key。
+    /// 官方接口需要使用者自己申请的 API Key（开源版本不内置）。
+    /// 设置里填写了自定义 Key 或 config/api-keys.json 里配置了 CurseForgeApiKey 时使用官方接口，
+    /// 否则只走 MCIM 社区镜像。
     /// </summary>
-    private const string EmbeddedKeyBase64 =
-        "JDJhJDEwJDdXV1YxV0VMY3dYOFhwN2Q2OE1Icy41Z3JUeVpWYTZTeW55ZVN5TWgxcnNFODluSWEwOXpP";
-
     private static string ApiKey
     {
         get
         {
             var custom = Settings.Current.CurseForgeApiKey;
             if (!string.IsNullOrWhiteSpace(custom)) return custom.Trim();
-            try
-            {
-                return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(EmbeddedKeyBase64));
-            }
-            catch
-            {
-                return "";
-            }
+            return ApiKeys.CurseForgeKey;
         }
     }
 

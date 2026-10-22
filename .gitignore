@@ -22,6 +22,7 @@ node_modules/
 # ---- 运行数据与日志 ----
 logs/
 config/
+api-keys.json
 *.log
 
 # ---- 不公开的参考源码 / 调试截图 ----

@@ -23,6 +23,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         Settings.Load();
+        ApiKeys.Load();
         AppLibrary.Load();
         Logger.Info("MC Tool Launcher (MCTL) 启动");
 
@@ -37,6 +38,8 @@ public partial class MainWindow : Window
             InitMusic();
             PlayWindowFadeIn();
             if (PageHost.Content == null) Navigate("NavHome");
+            Logger.Info($"API 凭据：微软={ApiKeys.MicrosoftReady} CurseForge={ApiKeys.CurseForgeReady} 需要配置={ApiKeys.NeedsSetup}");
+            if (ApiKeys.NeedsSetup) _ = PromptApiKeysAsync();
         };
         Closed += (_, _) =>
         {
@@ -137,6 +140,21 @@ public partial class MainWindow : Window
 
         AcrylicHelper.Apply(this, settings.AcrylicEnabled,
             settings.AcrylicOpacity, Color.FromRgb(14, 20, 34));
+    }
+
+    /// <summary>开源版本未内置 API 凭据时，启动后提示使用者自己申请并填写。</summary>
+    private async Task PromptApiKeysAsync()
+    {
+        await Task.Delay(700);
+        if (!ApiKeys.NeedsSetup) return;
+        try
+        {
+            new ApiKeysWindow { Owner = this }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("打开 API 凭据窗口失败：" + ex.Message);
+        }
     }
 
     private static Color ParseColor(string hex)
