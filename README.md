@@ -1,19 +1,11 @@
 # MC Tool Launcher (MCTL)
 
-一款综合性功能的 Minecraft 启动器，使用 **WPF / .NET 10** 编写。集成正版登录、3D 皮肤预览、版本与实例管理、
-模组 / 整合包 / 资源包下载、指令生成、开服工具等常用功能。
-
+一款综合性功能的 Minecraft 启动器，使用 **WPF / .NET 10** 编写。
 当前版本：**1.30**（`AssemblyName = MCTL`）
 
 ---
 
 ## 功能
-
-### 账号与皮肤
-- 微软正版登录（OAuth 设备码流程），自动读取正版皮肤与经典 / 纤细（Slim）形态，登录状态可自动续期
-- 主页账号区显示 **3D 头部头像**，右侧显示可拖拽旋转、滚轮缩放的 **3D 小人**（行走动画）
-- 3D 渲染基于原生 WPF `Viewport3D`，逐像素最近邻放大贴图，像素边缘清晰，不依赖 WebView2
-- 默认皮肤内置离线贴图 + 磁盘缓存，启动首帧即为正确皮肤；默认皮肤 UUID 已混淆处理
 
 ### 版本与实例
 - 多游戏目录管理、版本隔离、按版本筛选
@@ -36,14 +28,7 @@
 - 服务端核心下载（原版 / Fabric / Forge / NeoForge / Paper 等）、插件下载
 - `server.properties` 可视化配置、后台启动与服务器控制台
 
-### 界面
-- 白天 / 黑夜主题、玻璃面板（浓度可调）、背景图与高斯模糊
-- 卡片 / 侧栏 / 标题栏 / 内容区不透明度、自定义主题色、彩虹标题、背景音乐播放
 
-### 简洁版
-- `tools/LiteBoot` 生成的轻量引导器：本机没有 .NET 10 桌面运行时时自动下载安装，再释放并启动主程序
-
----
 
 ## 构建
 
@@ -65,49 +50,6 @@ dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
   -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
 ```
-
-### 发布简洁版（依赖本机 .NET 10）
-
-```powershell
-dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
-  --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish-lite
-
-# 用 .NET Framework 的 csc 打包成带内置载荷的引导器
-& "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /optimize+ `
-  /out:dist\MCTL-lite.exe /win32icon:src\AuroraLauncher\app.ico `
-  /resource:publish-lite\MCTL.exe,MCTL.exe `
-  /r:System.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll tools\LiteBoot\Program.cs
-```
-
-> 应用图标由 `tools/make-icon.ps1` 生成（透明底「MCT」像素字，多尺寸 PNG 帧 ICO）。
-
----
-
-## 项目结构
-
-```
-src/AuroraLauncher/      启动器主工程
-  Core/                  设置、日志、皮肤、下载（Mc / Mods / Net）、音乐等
-  Controls/Skin3DView.cs 原生 WPF 3D 皮肤渲染控件
-  Views/                 各页面与弹窗（XAML + code-behind）
-tools/UiSmoke/           自测台：页面构造、3D 皮肤、图标、整合包导入等检查
-tools/LiteBoot/          简洁版引导器（.NET Framework 4.8）
-tools/HeadViewer/        独立 3D 头部小工具（WebView2）
-tools/make-icon.ps1      应用图标生成脚本
-```
-
----
-
-## 自测
-
-```powershell
-dotnet run --project tools\UiSmoke\UiSmoke.csproj -c Release
-```
-
-常用子命令：`skin3d`（3D 皮肤 UV 与清晰度）、`skincache`（皮肤缓存一致性）、
-`cmdnames`（指令中文名完整性）、`importpack <包> <游戏目录>`（整合包导入 / 导出）、
-`renderpage home|settings|... <输出.png>`（页面离屏渲染）。
-
 ---
 
 ## 说明
