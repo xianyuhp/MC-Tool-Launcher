@@ -401,7 +401,9 @@ public partial class DownloadView : UserControl, IRefreshable
         var dirs = Settings.Current.GameDirs;
         if (_installDir == null || !dirs.Contains(_installDir, StringComparer.OrdinalIgnoreCase))
         {
-            _installDir = dirs[0];
+            // 默认用主页当前选中的目录，避免装到别的 .minecraft 里
+            var selected = InstancePaths.Root;
+            _installDir = dirs.Contains(selected, StringComparer.OrdinalIgnoreCase) ? selected : dirs[0];
             if (!Directory.Exists(_installDir))
             {
                 try { Directory.CreateDirectory(_installDir); } catch { }
@@ -557,10 +559,10 @@ public partial class DownloadView : UserControl, IRefreshable
         CancelBtn.IsEnabled = busy;
     }
 
-    private async Task InstallAsync(string title,
+    private async Task<bool> InstallAsync(string title,
         Func<IProgress<string>, IProgress<double>, CancellationToken, Task> action, string doneMessage = null)
     {
-        if (_busy) return;
+        if (_busy) return false;
         _cts = new CancellationTokenSource();
         SetBusy(true);
 
@@ -610,14 +612,62 @@ public partial class DownloadView : UserControl, IRefreshable
             _cts.Dispose();
             _cts = null;
         }
+        return completed;
+    }
+
+    /// <summary>
+    /// 安装游戏版本：先选安装目录并给版本起名，安装完成后把版本目录改成用户输入的名字（仍在同一目录里）。
+    /// </summary>
+    private async Task InstallVersionAsync(string title, string suggestedName,
+        Func<string, IProgress<string>, IProgress<double>, CancellationToken, Task<string>> install)
+    {
+        var dialog = new VersionNameDialog(title, suggestedName, _installDir ?? InstancePaths.Root)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        var dir = dialog.SelectedDir;
+        _installDir = dir;
+        BuildFolderChips();
+
+        string producedId = null;
+        var ok = await InstallAsync(title, async (log, progress, ct) =>
+            producedId = await install(dir, log, progress, ct));
+        if (!ok || string.IsNullOrEmpty(producedId)) return;
+
+        var finalId = producedId;
+        try
+        {
+            finalId = McInstaller.RenameVersion(dir, producedId, dialog.VersionName);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("版本已安装，但改名失败：" + ex.Message, "版本名称", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        // 让主页版本列表立刻能看到刚装好的版本（单独显示模式下也要把目录勾上）
+        Settings.Current.AddGameFolder(dir);
+        if (Settings.Current.VersionDisplayMode == "selected")
+        {
+            var list = Settings.Current.VersionDisplayDirs;
+            if (!list.Contains(dir, StringComparer.OrdinalIgnoreCase)) list.Add(dir);
+        }
+        Settings.Current.SelectedVersionId = finalId;
+        Settings.Current.SelectedVersionDir = dir;
+        Settings.Save();
+        AppState.SetSelectedVersion(finalId, dir);
+
+        StatusText.Text = $"已安装 {finalId} → {Path.Combine(dir, "versions", finalId)}";
+        Logger.Info($"版本安装完成：{finalId}（{dir}）");
     }
 
     private async void InstallVanilla_Click(object sender, RoutedEventArgs e)
     {
         var id = SelectedVersionId();
         if (id == null) { MessageBox.Show("请先在左侧选择一个版本。", "提示"); return; }
-        await InstallAsync("原版 " + id,
-            (log, progress, ct) => McInstaller.InstallVanillaAsync(id, log, progress, ct, _installDir));
+        await InstallVersionAsync("原版 " + id, id,
+            (dir, log, progress, ct) => McInstaller.InstallVanillaAsync(id, log, progress, ct, dir));
     }
 
     private async void InstallFabric_Click(object sender, RoutedEventArgs e)
@@ -639,8 +689,8 @@ public partial class DownloadView : UserControl, IRefreshable
             if (picker.ShowDialog() != true) return;
 
             var loader = picker.SelectedVersion;
-            await InstallAsync($"Fabric {loader} · {id}",
-                (log, progress, ct) => McInstaller.InstallFabricAsync(id, loader, log, progress, ct, _installDir));
+            await InstallVersionAsync($"Fabric {loader} · {id}", $"fabric-loader-{loader}-{id}",
+                (dir, log, progress, ct) => McInstaller.InstallFabricAsync(id, loader, log, progress, ct, dir));
         }
         catch (Exception ex)
         {
@@ -665,8 +715,8 @@ public partial class DownloadView : UserControl, IRefreshable
             };
             if (picker.ShowDialog() != true) return;
 
-            await InstallAsync($"Forge {picker.SelectedVersion} · {id}",
-                (log, progress, ct) => McInstaller.InstallForgeAsync(id, log, progress, ct, _installDir, picker.SelectedVersion));
+            await InstallVersionAsync($"Forge {picker.SelectedVersion} · {id}", $"{id}-forge-{picker.SelectedVersion}",
+                (dir, log, progress, ct) => McInstaller.InstallForgeAsync(id, log, progress, ct, dir, picker.SelectedVersion));
         }
         catch (Exception ex)
         {
@@ -691,8 +741,13 @@ public partial class DownloadView : UserControl, IRefreshable
             };
             if (picker.ShowDialog() != true) return;
 
-            await InstallAsync($"NeoForge {picker.SelectedVersion} · {id}",
-                (log, progress, ct) => McInstaller.InstallNeoForgeAsync(id, log, progress, ct, _installDir, picker.SelectedVersion));
+            var version = picker.SelectedVersion;
+            // 1.20.1 等旧构件版本号带 MC 前缀，安装器生成的目录也带
+            var suggested = version.StartsWith(id + "-", StringComparison.OrdinalIgnoreCase)
+                ? $"{id}-neoforge-{version[(id.Length + 1)..]}"
+                : "neoforge-" + version;
+            await InstallVersionAsync($"NeoForge {version} · {id}", suggested,
+                (dir, log, progress, ct) => McInstaller.InstallNeoForgeAsync(id, log, progress, ct, dir, version));
         }
         catch (Exception ex)
         {
@@ -814,8 +869,8 @@ public partial class DownloadView : UserControl, IRefreshable
             switch (chooser.SelectedVersion)
             {
                 case "none":
-                    await InstallAsync("原版 " + id,
-                        (log, progress, ct) => McInstaller.InstallVanillaAsync(id, log, progress, ct, _installDir));
+                    await InstallVersionAsync("原版 " + id, id,
+                        (dir, log, progress, ct) => McInstaller.InstallVanillaAsync(id, log, progress, ct, dir));
                     break;
 
                 case "fabric":
@@ -826,8 +881,9 @@ public partial class DownloadView : UserControl, IRefreshable
                         loaders.Select(l => (l.Version, l.Version + (l.Stable ? "（稳定）" : ""))))
                     { Owner = Window.GetWindow(this) };
                     if (picker.ShowDialog() != true) return;
-                    await InstallAsync($"Fabric {picker.SelectedVersion} · {id}",
-                        (log, progress, ct) => McInstaller.InstallFabricAsync(id, picker.SelectedVersion, log, progress, ct, _installDir));
+                    var loader = picker.SelectedVersion;
+                    await InstallVersionAsync($"Fabric {loader} · {id}", $"fabric-loader-{loader}-{id}",
+                        (dir, log, progress, ct) => McInstaller.InstallFabricAsync(id, loader, log, progress, ct, dir));
                     break;
                 }
 
@@ -837,8 +893,8 @@ public partial class DownloadView : UserControl, IRefreshable
                     var picker = new LoaderPickerWindow($"Forge · {id}", "选择 Forge 版本", versions)
                     { Owner = Window.GetWindow(this) };
                     if (picker.ShowDialog() != true) return;
-                    await InstallAsync($"Forge {picker.SelectedVersion} · {id}",
-                        (log, progress, ct) => McInstaller.InstallForgeAsync(id, log, progress, ct, _installDir, picker.SelectedVersion));
+                    await InstallVersionAsync($"Forge {picker.SelectedVersion} · {id}", $"{id}-forge-{picker.SelectedVersion}",
+                        (dir, log, progress, ct) => McInstaller.InstallForgeAsync(id, log, progress, ct, dir, picker.SelectedVersion));
                     break;
                 }
 
@@ -848,8 +904,12 @@ public partial class DownloadView : UserControl, IRefreshable
                     var picker = new LoaderPickerWindow($"NeoForge · {id}", "选择 NeoForge 版本", versions)
                     { Owner = Window.GetWindow(this) };
                     if (picker.ShowDialog() != true) return;
-                    await InstallAsync($"NeoForge {picker.SelectedVersion} · {id}",
-                        (log, progress, ct) => McInstaller.InstallNeoForgeAsync(id, log, progress, ct, _installDir, picker.SelectedVersion));
+                    var version = picker.SelectedVersion;
+                    var suggested = version.StartsWith(id + "-", StringComparison.OrdinalIgnoreCase)
+                        ? $"{id}-neoforge-{version[(id.Length + 1)..]}"
+                        : "neoforge-" + version;
+                    await InstallVersionAsync($"NeoForge {version} · {id}", suggested,
+                        (dir, log, progress, ct) => McInstaller.InstallNeoForgeAsync(id, log, progress, ct, dir, version));
                     break;
                 }
             }
@@ -1389,7 +1449,8 @@ public partial class DownloadView : UserControl, IRefreshable
     /// <summary>整合包：下载到临时目录后解析安装成一个完整客户端，直接进入游戏列表（不在版本目录里留文件夹）。</summary>
     private async Task InstallModpackAsync(ModItem item, ModFile file)
     {
-        var gameDir = Settings.Current.EffectiveGameDir;
+        // 跟随下载页当前选择的目录（与主页选中目录一致），不要装到别的 .minecraft
+        var gameDir = _installDir ?? ResolveGameRoot();
         var tempDir = Path.Combine(Path.GetTempPath(), "mctl-modpacks");
         try { Directory.CreateDirectory(tempDir); } catch { }
         var tempFile = Path.Combine(tempDir, SanitizeFileName(file.FileName));
@@ -1399,7 +1460,11 @@ public partial class DownloadView : UserControl, IRefreshable
         {
             log.Report($"下载整合包：{file.FileName}");
             var download = new Progress<double>(p => progress.Report(p * 0.35));
-            await McApi.DownloadAsync(file.Url, tempFile, file.Sha1, ct, download);
+            // cdn.modrinth.com 不通时，用官方 API 的按哈希下载接口换一条线路
+            var alternate = file.Url.Contains("cdn.modrinth.com", StringComparison.OrdinalIgnoreCase) && file.Sha1.Length == 40
+                ? $"https://api.modrinth.com/v2/version_file/{file.Sha1}/download"
+                : null;
+            await McApi.DownloadAsync(file.Url, tempFile, file.Sha1, ct, download, alternate);
 
             log.Report("解析整合包，安装进游戏列表…");
             var install = new Progress<double>(p => progress.Report(0.35 + p * 0.65));
@@ -1409,7 +1474,11 @@ public partial class DownloadView : UserControl, IRefreshable
 
         try { File.Delete(tempFile); } catch { }
         if (!string.IsNullOrEmpty(installed))
+        {
+            Settings.Current.AddGameFolder(gameDir);
+            Settings.Save();
             AppState.SetSelectedVersion(installed, gameDir);
+        }
     }
 
     private static string SanitizeFileName(string name)

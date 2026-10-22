@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using AuroraLauncher.Core.Net;
 
@@ -121,8 +122,8 @@ public static class McInstaller
     private static string ResolveDir(string gameDir) =>
         string.IsNullOrWhiteSpace(gameDir) ? Settings.Current.EffectiveGameDir : gameDir;
 
-    /// <summary>安装原版 Minecraft（客户端 jar + 依赖库 + 资源文件 + natives）。</summary>
-    public static async Task InstallVanillaAsync(string versionId, IProgress<string> log, IProgress<double> progress,
+    /// <summary>安装原版 Minecraft（客户端 jar + 依赖库 + 资源文件 + natives），返回版本 ID。</summary>
+    public static async Task<string> InstallVanillaAsync(string versionId, IProgress<string> log, IProgress<double> progress,
         CancellationToken ct, string gameDir = null)
     {
         gameDir = ResolveDir(gameDir);
@@ -212,10 +213,11 @@ public static class McInstaller
         ExtractNatives(gameDir, versionDir, libraries, log, ct);
         progress.Report(1);
         log.Report("安装完成：" + versionId);
+        return versionId;
     }
 
     /// <summary>安装 Fabric 加载器（自动先装对应原版）。</summary>
-    public static async Task InstallFabricAsync(string mcVersion, string loaderVersion, IProgress<string> log,
+    public static async Task<string> InstallFabricAsync(string mcVersion, string loaderVersion, IProgress<string> log,
         IProgress<double> progress, CancellationToken ct, string gameDir = null)
     {
         gameDir = ResolveDir(gameDir);
@@ -243,6 +245,67 @@ public static class McInstaller
 
         progress.Report(1);
         log.Report("Fabric 安装完成：" + id);
+        return id;
+    }
+
+    /// <summary>把生成的名字清理成合法的版本目录名。</summary>
+    public static string SanitizeVersionName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "";
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string(name.Trim().Where(c => !invalid.Contains(c)).ToArray()).Trim().TrimEnd('.');
+        return cleaned.Length == 0 || cleaned == "." || cleaned == ".." ? "" : cleaned;
+    }
+
+    /// <summary>安装完成后按用户指定的名字重命名版本目录、版本 JSON 与客户端 jar。</summary>
+    public static string RenameVersion(string gameDir, string oldId, string newName)
+    {
+        var newId = SanitizeVersionName(newName);
+        if (newId.Length == 0 || newId == oldId) return oldId;
+
+        var versionsDir = Path.Combine(gameDir, "versions");
+        var source = Path.Combine(versionsDir, oldId);
+        var destination = Path.Combine(versionsDir, newId);
+        if (!Directory.Exists(source)) return oldId;
+        if (Directory.Exists(destination)) throw new Exception($"版本名称「{newId}」已存在，请换一个。");
+
+        Directory.Move(source, destination);
+
+        var oldJson = Path.Combine(destination, oldId + ".json");
+        var newJson = Path.Combine(destination, newId + ".json");
+        if (File.Exists(oldJson))
+        {
+            try
+            {
+                var node = JsonNode.Parse(File.ReadAllText(oldJson))!.AsObject();
+                node["id"] = newId;
+                File.WriteAllText(newJson, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+                if (!string.Equals(oldJson, newJson, StringComparison.OrdinalIgnoreCase)) File.Delete(oldJson);
+            }
+            catch
+            {
+                // 改写失败就把 json 原样改名，至少保证结构完整
+                if (!string.Equals(oldJson, newJson, StringComparison.OrdinalIgnoreCase)) File.Move(oldJson, newJson);
+            }
+        }
+
+        var oldJar = Path.Combine(destination, oldId + ".jar");
+        if (File.Exists(oldJar)) File.Move(oldJar, Path.Combine(destination, newId + ".jar"));
+
+        // 其它版本里 inheritsFrom 指向旧名字的，一并改掉，否则加载器版本会启动失败
+        foreach (var json in Directory.GetFiles(versionsDir, "*.json", SearchOption.AllDirectories))
+        {
+            if (json.StartsWith(destination + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
+            try
+            {
+                var node = JsonNode.Parse(File.ReadAllText(json)) as JsonObject;
+                if (node?["inheritsFrom"]?.GetValue<string>() != oldId) continue;
+                node["inheritsFrom"] = newId;
+                File.WriteAllText(json, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch { }
+        }
+        return newId;
     }
 
     /// <summary>列出 Forge 可选版本（recommended / latest）。</summary>
@@ -363,8 +426,9 @@ public static class McInstaller
         progress.Report(1);
 
         var versionId = $"{mcVersion}-forge-{forgeVersion}";
+        versionId = FindInstalledVersion(gameDir, new[] { versionId, full }, forgeVersion);
         log.Report("Forge 安装完成：" + versionId);
-        return Directory.Exists(Path.Combine(gameDir, "versions", versionId)) ? versionId : full;
+        return versionId;
     }
 
     /// <summary>使用官方安装器安装 NeoForge（21.x 对应 MC 1.21.x 等）。</summary>
@@ -385,6 +449,12 @@ public static class McInstaller
         }
         // 1.20.1 等旧版本使用 net/neoforged/forge 构件，版本号形如 1.20.1-47.1.x
         var legacy = version.StartsWith(mcVersion + "-", StringComparison.OrdinalIgnoreCase);
+        if (!legacy && IsLegacyNeoForgeTarget(mcVersion))
+        {
+            // 整合包里通常只写 47.1.x，需要补上 MC 前缀才能对上旧构件
+            version = mcVersion + "-" + version;
+            legacy = true;
+        }
         var artifact = legacy ? "forge" : "neoforge";
         var installerUrl = $"{Mirror.NeoForgeMaven}/net/neoforged/{artifact}/{version}/{artifact}-{version}-installer.jar";
         var installer = Path.Combine(gameDir, "installers", $"{artifact}-{version}-installer.jar");
@@ -415,9 +485,41 @@ public static class McInstaller
                 "neoforge-" + version
             }
             : new[] { "neoforge-" + version, "neoforge-" + version + "-" + mcVersion, "neoforge-" + mcVersion + "-" + version };
-        var versionId = candidates.FirstOrDefault(id => Directory.Exists(Path.Combine(gameDir, "versions", id))) ?? candidates[0];
+        var versionId = FindInstalledVersion(gameDir, candidates, version);
         log.Report("NeoForge 安装完成：" + versionId);
         return versionId;
+    }
+
+    /// <summary>安装器生成的版本目录名不固定：先按候选名找，再在 versions 里按加载器 + 版本号扫一遍。</summary>
+    private static string FindInstalledVersion(string gameDir, IEnumerable<string> candidates, string versionHint)
+    {
+        var list = candidates.Where(c => !string.IsNullOrEmpty(c)).ToList();
+        var versionsDir = Path.Combine(gameDir, "versions");
+        foreach (var id in list)
+            if (Directory.Exists(Path.Combine(versionsDir, id))) return id;
+
+        if (Directory.Exists(versionsDir) && !string.IsNullOrEmpty(versionHint))
+        {
+            var match = Directory.GetDirectories(versionsDir)
+                .Select(Path.GetFileName)
+                .Where(id => id.Contains("forge", StringComparison.OrdinalIgnoreCase) &&
+                             id.Contains(versionHint, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(id => id, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
+            if (match != null) return match;
+        }
+        return list.FirstOrDefault() ?? versionHint;
+    }
+
+    /// <summary>NeoForge 只有 1.20.2+ 才有 net/neoforged/neoforge 构件，1.20.1 及更早走 net/neoforged/forge。</summary>
+    private static bool IsLegacyNeoForgeTarget(string mcVersion)
+    {
+        var parts = mcVersion.Split('.');
+        if (parts.Length < 2 || !int.TryParse(parts[0], out var major) || !int.TryParse(parts[1], out var minor))
+            return false;
+        if (major != 1) return major < 20; // 26.x 等新版不是 legacy
+        var patch = parts.Length > 2 && int.TryParse(parts[2], out var p) ? p : 0;
+        return minor < 20 || (minor == 20 && patch <= 1);
     }
 
     private static async Task EnsureVanillaAsync(string mcVersion, string gameDir, IProgress<string> log,
@@ -437,6 +539,34 @@ public static class McInstaller
             "{\"profiles\":{},\"settings\":{\"enableSnapshots\":false,\"enableAdvanced\":false,\"keepLauncherOpen\":false,\"showMenu\":false,\"showGameLog\":false,\"locale\":\"zh_CN\"},\"version\":3}");
     }
 
+    /// <summary>
+    /// 补齐游戏目录的标准结构：launcher_profiles.json、versions 以及每个版本的隔离目录。
+    /// 新建 .minecraft 时调用，避免安装器报「没有 launcher profile」、版本隔离目录也不存在。
+    /// </summary>
+    public static void EnsureGameDirLayout(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir)) return;
+        var versionsDir = Path.Combine(gameDir, "versions");
+        Directory.CreateDirectory(versionsDir);
+        foreach (var folder in new[] { "mods", "resourcepacks", "shaderpacks", "saves", "config", "logs" })
+            Directory.CreateDirectory(Path.Combine(gameDir, folder));
+        EnsureLauncherProfiles(gameDir);
+
+        // 已安装的版本补齐自己的隔离目录（开版本隔离后 mods / 存档都写进这里）
+        foreach (var versionDir in Directory.EnumerateDirectories(versionsDir))
+        {
+            var id = Path.GetFileName(versionDir);
+            if (!File.Exists(Path.Combine(versionDir, id + ".json"))) continue;
+            foreach (var folder in new[] { "mods", "resourcepacks", "shaderpacks", "saves", "config", "crash-reports" })
+                Directory.CreateDirectory(Path.Combine(versionDir, folder));
+        }
+    }
+
+    /// <summary>
+    /// 运行 Forge / NeoForge 安装器。
+    /// 先带 <c>--installClient &lt;目录&gt;</c> 安装（否则 NeoForge 会装到 %APPDATA%\.minecraft），
+    /// 旧版安装器不接受目录参数时自动去掉目录在工作目录内重试一次。
+    /// </summary>
     private static async Task RunInstallerAsync(string installer, string gameDir, string mcVersion,
         IProgress<string> log, CancellationToken ct)
     {
@@ -446,8 +576,32 @@ public static class McInstaller
         if (java == null) throw new Exception("未找到 Java，无法运行安装器。请先在设置中指定 java.exe。");
         log.Report($"使用 Java {java.Major} 运行安装器");
 
-        var psi = new ProcessStartInfo(java.Path)
+        var (code, tail) = await RunInstallerOnceAsync(java.Path, installer, gameDir, true, log, ct);
+        if (code == 0) return;
+
+        // 旧版安装器可能把目录参数当成非法参数：去掉目录再试一次
+        if (tail.Contains("--installClient", StringComparison.OrdinalIgnoreCase) ||
+            tail.Contains("Unknown option", StringComparison.OrdinalIgnoreCase) ||
+            tail.Contains("unrecognized", StringComparison.OrdinalIgnoreCase))
         {
+            log.Report("该安装器不接受目录参数，改为在工作目录内重试…");
+            (code, tail) = await RunInstallerOnceAsync(java.Path, installer, gameDir, false, log, ct);
+            if (code == 0) return;
+        }
+
+        Logger.Warn($"安装器退出代码 {code}：{tail}");
+        throw new Exception($"安装器退出代码 {code}。" +
+                            (tail.Length > 0
+                                ? Environment.NewLine + "安装器最后输出：" + Environment.NewLine + tail
+                                : "请确认 Java 版本与网络是否正常。"));
+    }
+
+    private static async Task<(int Code, string Tail)> RunInstallerOnceAsync(string java, string installer,
+        string gameDir, bool withTargetPath, IProgress<string> log, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo(java)
+        {
+            // 工作目录设置为游戏目录：旧版安装器会把客户端装进这里
             WorkingDirectory = gameDir,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -457,6 +611,7 @@ public static class McInstaller
         psi.ArgumentList.Add("-jar");
         psi.ArgumentList.Add(installer);
         psi.ArgumentList.Add("--installClient");
+        if (withTargetPath) psi.ArgumentList.Add(gameDir);
 
         var tail = new Queue<string>();
         void OnLine(string line)
@@ -479,16 +634,9 @@ public static class McInstaller
         process.BeginErrorReadLine();
         await process.WaitForExitAsync(ct);
 
-        if (process.ExitCode != 0)
-        {
-            string detail;
-            lock (tail) detail = string.Join(Environment.NewLine, tail);
-            Logger.Warn($"安装器退出代码 {process.ExitCode}：{detail}");
-            throw new Exception($"安装器退出代码 {process.ExitCode}。" +
-                                (detail.Length > 0
-                                    ? Environment.NewLine + "安装器最后输出：" + Environment.NewLine + detail
-                                    : "请确认 Java 版本与网络是否正常。"));
-        }
+        string detail;
+        lock (tail) detail = string.Join(Environment.NewLine, tail);
+        return (process.ExitCode, detail);
     }
 
     private static void ExtractNatives(string gameDir, string versionDir, List<LibraryEntry> libraries,

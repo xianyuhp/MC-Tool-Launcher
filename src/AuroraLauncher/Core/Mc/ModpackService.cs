@@ -104,27 +104,48 @@ public static class ModpackService
 
         if (files != null)
         {
+            // 整合包里的文件并发下载（8 路），比逐个串行快很多
+            using var gate = new SemaphoreSlim(8);
+            var tasks = new List<Task>();
             foreach (var item in files)
             {
                 ct.ThrowIfCancellationRequested();
                 var path = item?["path"]?.GetValue<string>();
                 var url = item?["downloads"]?.AsArray().FirstOrDefault()?.GetValue<string>();
                 if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(url)) continue;
+                var sha1 = item?["hashes"]?["sha1"]?.GetValue<string>() ?? "";
 
                 var destination = Path.Combine(target, path.Replace('/', '\\'));
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                try
+                tasks.Add(Task.Run(async () =>
                 {
-                    await McApi.DownloadAsync(url, destination, "", ct);
-                }
-                catch (Exception ex)
-                {
-                    failed++;
-                    log.Report($"下载失败：{path}（{ex.Message}）");
-                }
-                done++;
-                progress.Report(total == 0 ? fileBase : fileBase + (double)done / total * fileSpan);
+                    await gate.WaitAsync(ct);
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                        // Modrinth CDN 连不上时，用官方 API 的按哈希下载接口换一条线路
+                        var alternate = url.Contains("cdn.modrinth.com", StringComparison.OrdinalIgnoreCase) && sha1.Length == 40
+                            ? $"https://api.modrinth.com/v2/version_file/{sha1}/download"
+                            : null;
+                        await McApi.DownloadAsync(url, destination, sha1, ct, NoProgress.Instance, alternate);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Interlocked.Increment(ref failed);
+                        log.Report($"下载失败：{path}（{ex.Message}）");
+                    }
+                    finally
+                    {
+                        gate.Release();
+                        var finished = Interlocked.Increment(ref done);
+                        progress.Report(total == 0 ? fileBase : fileBase + (double)finished / total * fileSpan);
+                    }
+                }, ct));
             }
+            await Task.WhenAll(tasks);
         }
 
         // overrides 覆盖文件
@@ -401,5 +422,12 @@ public static class ModpackService
         foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
         name = name.Trim();
         return name.Length == 0 ? "整合包" : name;
+    }
+
+    /// <summary>非空进度对象：让下载器启用分段多线程，但不逐块刷新界面。</summary>
+    private sealed class NoProgress : IProgress<double>
+    {
+        public static readonly NoProgress Instance = new();
+        public void Report(double value) { }
     }
 }

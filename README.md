@@ -1,7 +1,7 @@
 ﻿# MC Tool Launcher (MCTL)
 
 一款综合性功能的 Minecraft 启动器，使用 **WPF / .NET 10** 编写。
-当前版本：**1.32.2**（`AssemblyName = MCTL`）
+当前版本：**1.33**（`AssemblyName = MCTL`）
 
 ---
 

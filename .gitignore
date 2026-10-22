@@ -3,6 +3,7 @@
 [Oo]bj/
 dist/
 publish/
+publish-*/
 publish-lite/
 publish-head/
 *.pdb

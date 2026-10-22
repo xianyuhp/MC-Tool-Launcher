@@ -317,7 +317,8 @@ public partial class HomeView : UserControl, IRefreshable
         var target = Path.Combine(dialog.FolderName, ".minecraft");
         try
         {
-            Directory.CreateDirectory(Path.Combine(target, "versions"));
+            // 一并写入 launcher_profiles.json 与各版本的隔离目录，Forge / NeoForge 安装器才能正常工作
+            McInstaller.EnsureGameDirLayout(target);
         }
         catch (Exception ex)
         {
@@ -341,6 +342,9 @@ public partial class HomeView : UserControl, IRefreshable
         var nested = Path.Combine(path, ".minecraft");
         if (!Directory.Exists(Path.Combine(path, "versions")) && Directory.Exists(nested))
             path = nested;
+
+        // 已有目录也补齐版本隔离结构（缺 launcher_profiles.json 时安装器会报错）
+        try { McInstaller.EnsureGameDirLayout(path); } catch { }
 
         Settings.Current.AddGameFolder(path);
         Settings.Save();
