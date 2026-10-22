@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MC Tool Launcher (MCTL) · 综合性 Minecraft 启动器</title>
+<meta name="description" content="MC Tool Launcher（MCTL）是一款基于 WPF / .NET 10 的综合性 Minecraft 启动器：正版登录、3D 皮肤预览、版本与加载器安装、模组与整合包下载、指令生成、开服工具。" />
+<meta name="theme-color" content="#0b1020" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233F6FE8'/%3E%3Ctext x='16' y='22' font-family='Segoe UI,sans-serif' font-size='13' font-weight='700' text-anchor='middle' fill='white'%3EMCT%3C/text%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#080c17;
+    --bg-2:#0d1424;
+    --panel:rgba(255,255,255,.045);
+    --panel-hover:rgba(255,255,255,.075);
+    --line:rgba(255,255,255,.10);
+    --text:#eef2fb;
+    --sub:#9aa6bd;
+    --accent:#5b8cff;
+    --accent-2:#7dd3fc;
+    --radius:18px;
+    --max:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth;scroll-padding-top:78px}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Segoe UI","Microsoft YaHei UI","PingFang SC",system-ui,-apple-system,sans-serif;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;text-decoration:none}
+
+  /* 背景光晕 */
+  .glow{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .glow i{
+    position:absolute;display:block;border-radius:50%;filter:blur(90px);opacity:.5;
+  }
+  .glow i:nth-child(1){width:620px;height:620px;left:-160px;top:-220px;background:radial-gradient(circle,#3b6bff,transparent 65%)}
+  .glow i:nth-child(2){width:520px;height:520px;right:-140px;top:60px;background:radial-gradient(circle,#0ea5e9,transparent 65%);opacity:.35}
+  .glow i:nth-child(3){width:700px;height:700px;left:35%;bottom:-420px;background:radial-gradient(circle,#7c3aed,transparent 65%);opacity:.3}
+
+  .wrap{position:relative;z-index:1;max-width:var(--max);margin:0 auto;padding:0 22px}
+
+  /* 顶栏 */
+  header{
+    position:sticky;top:0;z-index:5;
+    backdrop-filter:blur(14px);
+    background:rgba(8,12,23,.72);
+    border-bottom:1px solid var(--line);
+  }
+  .bar{display:flex;align-items:center;gap:14px;height:64px}
+  .logo{
+    display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.5px;
+  }
+  .mark{
+    width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:linear-gradient(145deg,#4c7dff,#2f5fe0);
+    font-size:10.5px;font-weight:900;letter-spacing:.2px;color:#fff;
+    box-shadow:0 6px 18px rgba(76,125,255,.45);
+  }
+  .logo small{font-weight:600;color:var(--sub);font-size:12px;letter-spacing:0}
+  nav{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  nav a{
+    padding:8px 13px;border-radius:10px;font-size:13.5px;color:var(--sub);
+    transition:.18s;
+  }
+  nav a:hover{color:var(--text);background:var(--panel-hover)}
+
+  /* 首屏 */
+  .hero{padding:74px 0 30px;display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center}
+  .tag{
+    display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#bcd0ff;
+    background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.32);
+    padding:6px 12px;border-radius:999px;margin-bottom:20px;
+  }
+  .dot{width:7px;height:7px;border-radius:50%;background:#4ade80;box-shadow:0 0 10px #4ade80}
+  h1{
+    margin:0 0 14px;font-size:52px;line-height:1.12;letter-spacing:-1px;font-weight:800;
+    background:linear-gradient(110deg,#ffffff 20%,#a9c4ff 62%,#7dd3fc 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .lead{margin:0;color:var(--sub);font-size:16.5px;max-width:34em}
+  .actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;padding:13px 22px;border-radius:12px;
+    font-size:14.5px;font-weight:600;transition:.18s;border:1px solid transparent;
+  }
+  .btn-primary{
+    background:linear-gradient(145deg,#5b8cff,#3f6fe8);color:#fff;
+    box-shadow:0 12px 30px rgba(63,111,232,.38);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(63,111,232,.5)}
+  .btn-ghost{background:var(--panel);border-color:var(--line);color:var(--text)}
+  .btn-ghost:hover{background:var(--panel-hover);border-color:rgba(255,255,255,.22)}
+  .meta{margin-top:22px;display:flex;gap:18px;flex-wrap:wrap;color:#7f8ba3;font-size:12.5px}
+
+  /* 右侧预览卡 */
+  .preview{
+    border-radius:22px;border:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+    padding:16px;box-shadow:0 30px 80px rgba(0,0,0,.5);
+  }
+  .preview-head{display:flex;align-items:center;gap:6px;padding:2px 4px 12px}
+  .preview-head span{width:9px;height:9px;border-radius:50%;background:#2f3a53}
+  .preview-head span:first-child{background:#f87171}
+  .preview-head span:nth-child(2){background:#fbbf24}
+  .preview-head span:nth-child(3){background:#34d399}
+  .screen{
+    border-radius:14px;overflow:hidden;background:#0a0f1c;border:1px solid rgba(255,255,255,.06);
+    padding:14px;display:grid;grid-template-columns:52px 1fr;gap:12px;min-height:250px;
+  }
+  .rail{display:flex;flex-direction:column;gap:12px;align-items:center;padding-top:4px}
+  .rail b{
+    width:30px;height:30px;border-radius:9px;background:rgba(255,255,255,.06);
+    display:grid;place-items:center;font-size:12px;font-weight:600;color:#8695b0;
+  }
+  .rail b.on{background:rgba(91,140,255,.22);color:#a9c4ff;border:1px solid rgba(91,140,255,.5)}
+  .stage{display:grid;gap:10px;align-content:start}
+  .skin{
+    height:118px;border-radius:12px;display:grid;place-items:center;
+    background:radial-gradient(circle at 50% 30%,rgba(91,140,255,.28),rgba(10,15,28,.2) 70%);
+    border:1px solid rgba(255,255,255,.06);
+  }
+  .skin svg{filter:drop-shadow(0 8px 18px rgba(0,0,0,.45))}
+  .rows{display:grid;gap:8px}
+  .row{height:26px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.05)}
+  .row.short{width:62%}
+  .pills{display:flex;gap:8px;margin-top:2px}
+  .pill{height:22px;border-radius:999px;background:rgba(91,140,255,.16);border:1px solid rgba(91,140,255,.3);flex:1}
+  .pill.dim{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.07)}
+
+  /* 区块 */
+  section{padding:56px 0}
+  .sec-head{max-width:640px;margin-bottom:28px}
+  .kicker{color:var(--accent-2);font-size:12.5px;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+  h2{margin:8px 0 10px;font-size:30px;letter-spacing:-.5px;font-weight:800}
+  .sec-head p{margin:0;color:var(--sub);font-size:14.5px}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;transition:.2s;
+  }
+  .card:hover{background:var(--panel-hover);transform:translateY(-3px);border-color:rgba(120,160,255,.35)}
+  .ico{
+    width:38px;height:38px;border-radius:11px;display:grid;place-items:center;margin-bottom:14px;
+    background:rgba(91,140,255,.14);border:1px solid rgba(91,140,255,.28);color:#a9c4ff;
+  }
+  .ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .card h3{margin:0 0 6px;font-size:15.5px;font-weight:700}
+  .card p{margin:0;color:var(--sub);font-size:13.5px}
+
+  /* 下载 */
+  .dl{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .dl-card{
+    background:linear-gradient(160deg,rgba(91,140,255,.14),rgba(255,255,255,.035));
+    border:1px solid rgba(91,140,255,.28);border-radius:var(--radius);padding:24px;
+  }
+  .dl-card h3{margin:0 0 6px;font-size:17px}
+  .dl-card .size{color:#8ea6d8;font-size:12.5px;letter-spacing:.3px}
+  .dl-card p{color:var(--sub);font-size:13.5px;margin:10px 0 18px}
+  .dl-card .btn{width:100%;justify-content:center;padding:11px 18px;font-size:13.5px}
+
+  /* 代码 */
+  pre{
+    margin:0;background:#070b14;border:1px solid var(--line);border-radius:14px;
+    padding:18px;overflow:auto;font-size:12.8px;line-height:1.75;
+    font-family:"Cascadia Code",Consolas,"Courier New",monospace;color:#c9d6ef;
+  }
+  pre .c{color:#64748b}
+  pre .k{color:#7dd3fc}
+
+  footer{
+    border-top:1px solid var(--line);padding:30px 0 44px;margin-top:20px;
+    color:#7f8ba3;font-size:12.5px;
+  }
+  footer .wrap{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  footer a:hover{color:var(--text)}
+
+  @media (max-width:900px){
+    .hero{grid-template-columns:1fr;gap:34px;padding-top:52px}
+    h1{font-size:40px}
+    .grid{grid-template-columns:1fr 1fr}
+    .dl{grid-template-columns:1fr}
+  }
+  @media (max-width:620px){
+    .grid{grid-template-columns:1fr}
+    h1{font-size:33px}
+    /* 窄屏导航换行时让顶栏自适应高度，避免溢出 header */
+    .bar{height:auto;min-height:60px;flex-wrap:wrap;padding:8px 22px;row-gap:2px}
+    nav{margin-left:0;width:100%;justify-content:flex-end;gap:2px}
+    nav a{padding:6px 8px;font-size:12.5px}
+    .logo small{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="glow"><i></i><i></i><i></i></div>
+
+<header>
+  <div class="wrap bar">
+    <a class="logo" href="#top">
+      <span class="mark">MCT</span>
+      MC Tool Launcher <small>MCTL</small>
+    </a>
+    <nav>
+      <a href="#features">功能</a>
+      <a href="#download">下载</a>
+      <a href="#build">构建</a>
+      <a href="https://github.com/xianyuhp/MC-Tool-Launcher">仓库</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+  <section class="hero">
+    <div>
+      <span class="tag"><span class="dot"></span>v1.30 · Windows · WPF / .NET 10</span>
+      <h1>一站式<br />Minecraft 启动器</h1>
+      <p class="lead">
+        正版登录、3D 皮肤预览、版本与加载器安装、模组与整合包下载、指令生成、开服工具，
+        都集中在一个干净、可自定义的界面里。
+      </p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/xianyuhp/MC-Tool-Launcher/releases">下载最新版
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/xianyuhp/MC-Tool-Launcher">查看源码</a>
+      </div>
+      <div class="meta">
+        <span>Apache-2.0 开源</span>
+        <span>自包含 / 简洁版双版本</span>
+        <span>不依赖 WebView2</span>
+      </div>
+    </div>
+
+    <div class="preview" aria-hidden="true">
+      <div class="preview-head"><span></span><span></span><span></span></div>
+      <div class="screen">
+        <div class="rail">
+          <b class="on">⌂</b><b>↓</b><b>▤</b><b>⚙</b>
+        </div>
+        <div class="stage">
+          <div class="skin">
+            <svg width="54" height="96" viewBox="0 0 54 96">
+              <rect x="15" y="4" width="24" height="24" rx="3" fill="#c8956a"/>
+              <rect x="15" y="4" width="24" height="7" rx="3" fill="#3b2a1d"/>
+              <rect x="19" y="15" width="5" height="4" fill="#1f2937"/>
+              <rect x="30" y="15" width="5" height="4" fill="#1f2937"/>
+              <rect x="13" y="29" width="28" height="34" rx="3" fill="#2f6fd0"/>
+              <rect x="4" y="30" width="8" height="30" rx="3" fill="#2f6fd0"/>
+              <rect x="42" y="30" width="8" height="30" rx="3" fill="#2f6fd0"/>
+              <rect x="15" y="64" width="10" height="28" rx="3" fill="#243244"/>
+              <rect x="29" y="64" width="10" height="28" rx="3" fill="#243244"/>
+            </svg>
+          </div>
+          <div class="rows">
+            <div class="row"></div>
+            <div class="row short"></div>
+          </div>
+          <div class="pills"><span class="pill"></span><span class="pill dim"></span><span class="pill dim"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="sec-head">
+      <div class="kicker">Features</div>
+      <h2>为日常玩家与开服者准备的功能</h2>
+      <p>从登录、装版本到管理模组和开服，常用操作都留在同一个窗口里。</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <h3>微软正版登录</h3>
+        <p>设备码登录流程，自动读取正版皮肤、经典 / 纤细形态与登录续期，也支持离线模式。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="m12 2 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+        <h3>3D 皮肤预览</h3>
+        <p>原生 WPF 3D 渲染，主页头部头像与全身小人支持拖拽旋转、滚轮缩放与行走动画，像素边缘清晰。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div>
+        <h3>版本与加载器</h3>
+        <p>原版 / Fabric / Forge / NeoForge 一键安装，多目录与版本隔离；官方 Maven 不通时自动换镜像重试。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg></div>
+        <h3>模组与整合包</h3>
+        <p>Modrinth / CurseForge 搜索下载，自动补齐前置；整合包下载后直接解析成游戏列表里的客户端。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="m8 9-4 3 4 3"/><path d="m16 9 4 3-4 3"/><path d="M13 6 11 18"/></svg></div>
+        <h3>指令生成</h3>
+        <p>/give 与 /summon 可视化生成，按版本适配 NBT 与数据组件，物品、生物附带中文名。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></div>
+        <h3>开服工具</h3>
+        <p>服务端核心与插件下载、server.properties 可视化配置、后台启动与控制台输出。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/></svg></div>
+        <h3>界面可定制</h3>
+        <p>白天 / 黑夜主题、玻璃面板浓度、背景图与模糊、各区域透明度、主题色与背景音乐。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"/></svg></div>
+        <h3>简洁版引导器</h3>
+        <p>轻量引导器检测不到 .NET 10 桌面运行时会自动下载安装，随后释放并启动主程序。</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
+        <h3>网络容错</h3>
+        <p>连接超时、镜像候选、指数退避重试；下载失败时明确提示缺失文件与官方下载页。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="sec-head">
+      <div class="kicker">Download</div>
+      <h2>选择适合你的版本</h2>
+      <p>两个版本功能完全一致，区别只在于是否自带 .NET 运行时。均从 GitHub Releases 获取。</p>
+    </div>
+
+    <div class="dl">
+      <div class="dl-card">
+        <h3>MCTL-win64.exe</h3>
+        <div class="size">自包含单文件 · 约 62 MB</div>
+        <p>自带 .NET 10 运行时，下载后双击即可使用，适合分享给没有开发环境的电脑。</p>
+        <a class="btn btn-primary" href="https://github.com/xianyuhp/MC-Tool-Launcher/releases">前往 Releases 下载</a>
+      </div>
+      <div class="dl-card">
+        <h3>MCTL-lite.exe</h3>
+        <div class="size">简洁版引导器 · 约 2 MB</div>
+        <p>体积小，首次运行若缺少 .NET 10 桌面运行时会自动下载安装，之后启动主程序。</p>
+        <a class="btn btn-ghost" href="https://github.com/xianyuhp/MC-Tool-Launcher/releases">前往 Releases 下载</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="build">
+    <div class="sec-head">
+      <div class="kicker">Build</div>
+      <h2>从源码构建</h2>
+      <p>需要 Windows 10/11 与 .NET SDK 10。</p>
+    </div>
+<pre><span class="c"># 克隆仓库</span>
+git clone https://github.com/xianyuhp/MC-Tool-Launcher.git
+cd MC-Tool-Launcher
+
+<span class="c"># 编译并运行</span>
+dotnet build src\AuroraLauncher\AuroraLauncher.csproj -c Release
+dotnet run --project src\AuroraLauncher\AuroraLauncher.csproj
+
+<span class="c"># 发布自包含单文件</span>
+dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
+  --self-contained true -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+</pre>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Xyu · MC Tool Launcher (MCTL) · Apache-2.0 License</span>
+    <span>
+      <a href="https://github.com/xianyuhp/MC-Tool-Launcher">GitHub</a> ·
+      <a href="https://github.com/xianyuhp/MC-Tool-Launcher/blob/main/README.md">README</a> ·
+      本项目与 Mojang Studios、Microsoft 无关联
+    </span>
+  </div>
+</footer>
+</body>
+</html>
