@@ -11,10 +11,10 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
-    <Version>1.32.1</Version>
+    <Version>1.32.2</Version>
     <Product>MC Tool Launcher</Product>
     <Company>Aurora</Company>
-    <FileVersion>1.32.1.0</FileVersion>
+    <FileVersion>1.32.2.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,13 +27,20 @@
   </ItemGroup>
 
   <!--
-    正式版：如果本地存在 ApiKeys.local.json（已在 .gitignore 中忽略，不会提交），
-    就把其中的 API 凭据编进程序，构建出来的是无需配置的正式版；
-    没有这个文件时构建的是开源版本，启动会提示使用者自己填写。
+    正式版：先运行 tools/KeyPacker 把 ApiKeys.local.json 打包成 ApiKeys.local.bin
+    （AES-256-CBC + 掩码 + 分段重排，程序里读不到明文凭据），构建时再把它编进程序。
+    两个文件都已在 .gitignore 中忽略；没有 .bin 时构建的是开源版本，启动提示使用者自己填写。
   -->
-  <ItemGroup Condition="Exists('ApiKeys.local.json')">
-    <EmbeddedResource Include="ApiKeys.local.json" LogicalName="AuroraLauncher.ApiKeys.local.json" />
+  <ItemGroup Condition="Exists('ApiKeys.local.bin')">
+    <EmbeddedResource Include="ApiKeys.local.bin" LogicalName="AuroraLauncher.ApiKeys.local.bin" />
   </ItemGroup>
+
+  <!-- 凭据文件比打包结果新（或还没打包）时，构建前自动重新打包 -->
+  <Target Name="PackApiKeysPayload" BeforeTargets="PrepareResources"
+          Inputs="ApiKeys.local.json" Outputs="ApiKeys.local.bin"
+          Condition="Exists('ApiKeys.local.json')">
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\..\tools\KeyPacker\KeyPacker.csproj&quot; -c Release -- &quot;$(MSBuildProjectDirectory)\ApiKeys.local.json&quot; &quot;$(MSBuildProjectDirectory)\ApiKeys.local.bin&quot;" />
+  </Target>
 
 </Project>
 

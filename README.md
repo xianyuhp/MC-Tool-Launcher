@@ -1,7 +1,7 @@
 ﻿# MC Tool Launcher (MCTL)
 
 一款综合性功能的 Minecraft 启动器，使用 **WPF / .NET 10** 编写。
-当前版本：**1.32.1**（`AssemblyName = MCTL`）
+当前版本：**1.32.2**（`AssemblyName = MCTL`）
 
 ---
 
@@ -36,19 +36,28 @@
 
 如果希望做出来的是**开箱即用、无需让使用者填写凭据**的正式版，在构建前把
 `src/AuroraLauncher/ApiKeys.local.sample.json` 复制为 `src/AuroraLauncher/ApiKeys.local.json`
-并填入真实凭据，然后照常 `dotnet build / publish` —— 该文件会被当作资源编进程序：
+并填入真实凭据，再用 `tools/KeyPacker` 打包成加密的 `ApiKeys.local.bin`：
 
 ```powershell
+# 1) 填写凭据
 Copy-Item src\AuroraLauncher\ApiKeys.local.sample.json src\AuroraLauncher\ApiKeys.local.json
 # 编辑 ApiKeys.local.json 填入 MicrosoftClientId / CurseForgeApiKey
+
+# 2) 打包（AES-256-CBC + 逐字节掩码 + 三段重排）
+dotnet run --project tools\KeyPacker -- `
+  src\AuroraLauncher\ApiKeys.local.json src\AuroraLauncher\ApiKeys.local.bin
+
+# 3) 构建（构建时会把 .bin 作为资源编进程序）
 dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
   --self-contained true -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
 ```
 
-- `ApiKeys.local.json` 已在 `.gitignore` 中忽略，**不会**被提交；
-- 没有这个文件时，构建出来的就是开源版本（启动提示填写）；
+- `ApiKeys.local.json` / `ApiKeys.local.bin` 都已在 `.gitignore` 中忽略，**不会**被提交；
+- 程序里没有明文凭据，只有运行时才解包（`Core/KeyVault.cs`）；
+- 改了 json 后重新构建会自动触发重新打包（`PackApiKeysPayload` 目标）；
+- 没有 `.bin` 时，构建出来的就是开源版本（启动提示填写）；
 - 运行时的覆盖顺序：环境变量 > `config/api-keys.json` > 构建时内置。
 
 ---

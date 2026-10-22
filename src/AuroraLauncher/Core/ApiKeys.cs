@@ -56,23 +56,25 @@ public static class ApiKeys
         LoadBuiltIn();
     }
 
-    /// <summary>正式版构建时把 ApiKeys.local.json 作为资源编入程序，这里读出来作为默认值。</summary>
+    /// <summary>正式版构建时把加密后的凭据编入程序，这里解出来作为默认值。</summary>
     private static void LoadBuiltIn()
     {
         if (MicrosoftReady && CurseForgeReady) return;
         try
         {
             using var stream = typeof(ApiKeys).Assembly
-                .GetManifestResourceStream("AuroraLauncher.ApiKeys.local.json");
+                .GetManifestResourceStream("AuroraLauncher.ApiKeys.local.bin");
             if (stream == null) return;
 
-            using var reader = new StreamReader(stream);
-            using var doc = JsonDocument.Parse(reader.ReadToEnd());
-            var root = doc.RootElement;
-            if (MicrosoftClientId.Length == 0 && root.TryGetProperty("MicrosoftClientId", out var ms))
-                MicrosoftClientId = (ms.GetString() ?? "").Trim();
-            if (CurseForgeKey.Length == 0 && root.TryGetProperty("CurseForgeApiKey", out var cf))
-                CurseForgeKey = (cf.GetString() ?? "").Trim();
+            var keys = KeyVault.Read(stream);
+            if (keys == null)
+            {
+                Logger.Warn("内置 API 凭据解码失败，将按开源版本处理");
+                return;
+            }
+
+            if (MicrosoftClientId.Length == 0) MicrosoftClientId = keys.Value.MicrosoftClientId;
+            if (CurseForgeKey.Length == 0) CurseForgeKey = keys.Value.CurseForgeKey;
         }
         catch (Exception ex)
         {

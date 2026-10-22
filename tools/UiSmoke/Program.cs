@@ -863,6 +863,8 @@ internal static class Program
                           $"cfReady={AuroraLauncher.Core.ApiKeys.CurseForgeReady} " +
                           $"needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
         Console.WriteLine("path=" + AuroraLauncher.Core.ApiKeys.FilePath);
+        Console.WriteLine("resources=" + string.Join(",", typeof(AuroraLauncher.Core.ApiKeys).Assembly
+            .GetManifestResourceNames().Where(n => n.Contains("ApiKeys", StringComparison.OrdinalIgnoreCase))));
         // 初始状态取决于构建方式：开源版为 True；带内置凭据的正式版为 False
         var initial = AuroraLauncher.Core.ApiKeys.NeedsSetup;
         Console.WriteLine("builtInKeys=" + (!initial));
