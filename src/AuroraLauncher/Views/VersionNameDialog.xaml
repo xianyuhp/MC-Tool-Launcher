@@ -27,7 +27,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ComboBox x:Name="DirCombo" Grid.Column="0" Style="{StaticResource Input}" Height="32" FontSize="11" />
+                <ComboBox x:Name="DirCombo" Grid.Column="0" Height="32" FontSize="11" />
                 <Button Grid.Column="1" Content="浏览…" Style="{StaticResource Btn}" Margin="8,0,0,0"
                         Padding="12,4" Click="Browse_Click" />
             </Grid>
