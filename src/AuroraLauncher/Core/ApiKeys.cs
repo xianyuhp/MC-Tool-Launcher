@@ -27,7 +27,7 @@ public static class ApiKeys
     /// <summary>缺少凭据（开源版本），启动时需要提示使用者自己申请。</summary>
     public static bool NeedsSetup => !MicrosoftReady || !CurseForgeReady;
 
-    /// <summary>读取凭据：环境变量优先，其次 api-keys.json。</summary>
+    /// <summary>读取凭据：环境变量 &gt; config/api-keys.json &gt; 构建时内置（正式版）。</summary>
     public static void Load()
     {
         MicrosoftClientId = Env("MCTL_MS_CLIENT_ID");
@@ -35,8 +35,36 @@ public static class ApiKeys
 
         try
         {
-            if (!File.Exists(FilePath)) return;
-            using var doc = JsonDocument.Parse(File.ReadAllText(FilePath));
+            if (File.Exists(FilePath))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(FilePath));
+                var root = doc.RootElement;
+                if (MicrosoftClientId.Length == 0 && root.TryGetProperty("MicrosoftClientId", out var ms))
+                    MicrosoftClientId = (ms.GetString() ?? "").Trim();
+                if (CurseForgeKey.Length == 0 && root.TryGetProperty("CurseForgeApiKey", out var cf))
+                    CurseForgeKey = (cf.GetString() ?? "").Trim();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("读取 api-keys.json 失败：" + ex.Message);
+        }
+
+        LoadBuiltIn();
+    }
+
+    /// <summary>正式版构建时把 ApiKeys.local.json 作为资源编入程序，这里读出来作为默认值。</summary>
+    private static void LoadBuiltIn()
+    {
+        if (MicrosoftReady && CurseForgeReady) return;
+        try
+        {
+            using var stream = typeof(ApiKeys).Assembly
+                .GetManifestResourceStream("AuroraLauncher.ApiKeys.local.json");
+            if (stream == null) return;
+
+            using var reader = new StreamReader(stream);
+            using var doc = JsonDocument.Parse(reader.ReadToEnd());
             var root = doc.RootElement;
             if (MicrosoftClientId.Length == 0 && root.TryGetProperty("MicrosoftClientId", out var ms))
                 MicrosoftClientId = (ms.GetString() ?? "").Trim();
@@ -45,7 +73,7 @@ public static class ApiKeys
         }
         catch (Exception ex)
         {
-            Logger.Warn("读取 api-keys.json 失败：" + ex.Message);
+            Logger.Warn("读取内置 API 凭据失败：" + ex.Message);
         }
     }
 

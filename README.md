@@ -32,6 +32,25 @@
 > `config/api-keys.json` 已在 `.gitignore` 中忽略，填写后不会被提交到仓库。
 > 未配置微软客户端 ID 时，正版登录会给出明确提示；未配置 CurseForge Key 时只使用社区镜像。
 
+### 构建「正式版」（凭据编进程序）
+
+如果希望做出来的是**开箱即用、无需让使用者填写凭据**的正式版，在构建前把
+`src/AuroraLauncher/ApiKeys.local.sample.json` 复制为 `src/AuroraLauncher/ApiKeys.local.json`
+并填入真实凭据，然后照常 `dotnet build / publish` —— 该文件会被当作资源编进程序：
+
+```powershell
+Copy-Item src\AuroraLauncher\ApiKeys.local.sample.json src\AuroraLauncher\ApiKeys.local.json
+# 编辑 ApiKeys.local.json 填入 MicrosoftClientId / CurseForgeApiKey
+dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
+  --self-contained true -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+```
+
+- `ApiKeys.local.json` 已在 `.gitignore` 中忽略，**不会**被提交；
+- 没有这个文件时，构建出来的就是开源版本（启动提示填写）；
+- 运行时的覆盖顺序：环境变量 > `config/api-keys.json` > 构建时内置。
+
 ---
 
 ## 功能

@@ -842,7 +842,9 @@ internal static class Program
                           $"cfReady={AuroraLauncher.Core.ApiKeys.CurseForgeReady} " +
                           $"needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
         Console.WriteLine("path=" + AuroraLauncher.Core.ApiKeys.FilePath);
-        var ok = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+        // 初始状态取决于构建方式：开源版为 True；带内置凭据的正式版为 False
+        var initial = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+        Console.WriteLine("builtInKeys=" + (!initial));
 
         var app = new AuroraLauncher.App();
         app.InitializeComponent();
@@ -859,10 +861,12 @@ internal static class Program
 
         File.Delete(AuroraLauncher.Core.ApiKeys.FilePath);
         AuroraLauncher.Core.ApiKeys.Load();
-        var cleared = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+        // 删掉配置文件后应回到构建时的默认状态（开源版=需要配置，正式版=内置凭据）
+        var restored = AuroraLauncher.Core.ApiKeys.NeedsSetup == initial;
 
-        Console.WriteLine(ok && saved && cleared ? "APIKEYS OK" : "APIKEYS FAIL");
-        return ok && saved && cleared ? 0 : 1;
+        var ok = saved && restored;
+        Console.WriteLine(ok ? "APIKEYS OK" : "APIKEYS FAIL");
+        return ok ? 0 : 1;
     }
 
     private static int CommandNamesCheck()

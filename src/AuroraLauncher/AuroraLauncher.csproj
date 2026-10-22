@@ -26,5 +26,14 @@
     <EmbeddedResource Include="Assets\default-skin.png" />
   </ItemGroup>
 
+  <!--
+    正式版：如果本地存在 ApiKeys.local.json（已在 .gitignore 中忽略，不会提交），
+    就把其中的 API 凭据编进程序，构建出来的是无需配置的正式版；
+    没有这个文件时构建的是开源版本，启动会提示使用者自己填写。
+  -->
+  <ItemGroup Condition="Exists('ApiKeys.local.json')">
+    <EmbeddedResource Include="ApiKeys.local.json" LogicalName="AuroraLauncher.ApiKeys.local.json" />
+  </ItemGroup>
+
 </Project>
 
