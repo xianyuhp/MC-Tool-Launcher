@@ -23,6 +23,8 @@ internal static class Program
             return CommandNamesCheck();
         if (args.Length > 0 && args[0] == "apikeys")
             return ApiKeysCheck();
+        if (args.Length > 1 && args[0] == "neoversions")
+            return NeoForgeVersionsCheck(args[1]).GetAwaiter().GetResult();
         if (args.Length > 2 && args[0] == "dl")
             return DownloadCheck(args[1], args[2]).GetAwaiter().GetResult();
         if (args.Length > 2 && args[0] == "importpack")
@@ -827,6 +829,25 @@ internal static class Program
         catch (Exception ex)
         {
             Console.WriteLine("DL FAILED " + ex.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>检查 NeoForge 版本列表能否按 MC 版本正确列出（1.21.1 → 21.1.x，1.20.1 → 1.20.1-47.x）。</summary>
+    private static async Task<int> NeoForgeVersionsCheck(string mcVersion)
+    {
+        try
+        {
+            var list = await McInstaller.GetNeoForgeVersionsAsync(mcVersion);
+            Console.WriteLine($"mc={mcVersion} count={list.Count}");
+            foreach (var (value, _) in list.Take(5)) Console.WriteLine("  " + value);
+            var ok = list.Count > 0;
+            Console.WriteLine(ok ? "NEOVERSIONS OK" : "NEOVERSIONS FAIL");
+            return ok ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("NEOVERSIONS FAILED: " + ex.Message);
             return 1;
         }
     }

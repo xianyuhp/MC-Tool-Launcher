@@ -22,7 +22,9 @@ public static class McApi
         var handler = new SocketsHttpHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
-            ConnectTimeout = TimeSpan.FromSeconds(8)
+            ConnectTimeout = TimeSpan.FromSeconds(15),
+            // 并发拨号：DNS 返回的多个 IP 里有坏地址时也能快速连上（修复 cdn.modrinth.com 超时）
+            ConnectCallback = HttpConnection.ConnectAsync
         };
         var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
         // 使用常见浏览器 UA / Accept，避免部分 CDN 直接拦截非浏览器请求

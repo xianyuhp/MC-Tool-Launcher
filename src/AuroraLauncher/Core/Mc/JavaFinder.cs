@@ -186,7 +186,7 @@ public static class JavaFinder
     }
 
     /// <summary>按原版版本号推断 Java 主版本：≤1.16 → 8，1.17 → 16，1.18~1.20.4 → 17，≥1.20.5 → 21。</summary>
-    private static int GuessMajor(string versionId)
+    public static int GuessMajor(string versionId)
     {
         var match = System.Text.RegularExpressions.Regex.Match(versionId ?? "", @"^(\d+)\.(\d+)(?:\.(\d+))?");
         if (!match.Success) return 17;

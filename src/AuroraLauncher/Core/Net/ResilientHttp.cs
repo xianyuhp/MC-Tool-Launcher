@@ -24,8 +24,10 @@ public static class ResilientHttp
         var handler = new SocketsHttpHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
-            ConnectTimeout = TimeSpan.FromSeconds(10),
-            PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+            ConnectTimeout = TimeSpan.FromSeconds(15),
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            // 并发拨号：域名解析出多个 IP 时，避开其中不通的地址
+            ConnectCallback = HttpConnection.ConnectAsync
         };
         var client = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
 

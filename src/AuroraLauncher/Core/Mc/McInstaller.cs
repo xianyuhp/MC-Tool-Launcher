@@ -263,38 +263,74 @@ public static class McInstaller
         return list;
     }
 
-    /// <summary>列出 NeoForge 可选版本。</summary>
+    /// <summary>
+    /// 列出 NeoForge 可选版本。
+    /// NeoForge 的版本号跟 Minecraft 不是一套：1.21.1 → 21.1.x，1.20.4 → 20.4.x，26.3 → 26.3.x；
+    /// 1.20.1 及更早走旧构件 net/neoforged/forge，版本形如 1.20.1-47.1.x。
+    /// </summary>
     public static async Task<List<(string Value, string Label)>> GetNeoForgeVersionsAsync(string mcVersion)
     {
         var parts = mcVersion.Split('.');
         if (parts.Length < 2 || !int.TryParse(parts[0], out var major) || !int.TryParse(parts[1], out var minor))
             throw new Exception("NeoForge 不支持该版本：" + mcVersion);
-        var prefix = $"{major}.{minor}.";
 
-        string xml;
+        // 新版构件（1.20.2+）
+        var prefixes = new List<string>();
+        if (major == 1)
+            prefixes.Add($"{parts[1]}.{(parts.Length > 2 ? parts[2] : "0")}.");
+        else
+            prefixes.Add($"{major}.{minor}.");
+
+        var versions = new List<string>();
+        var errors = new List<string>();
+
         try
         {
             // 官方 Maven 不通时会自动切换 ForgeCDN / BMCLAPI 镜像，并带指数退避重试
-            xml = await ResilientHttp.GetStringAsync(
+            var xml = await ResilientHttp.GetStringAsync(
                 $"{Mirror.NeoForgeMaven}/net/neoforged/neoforge/maven-metadata.xml", 30);
-        }
-        catch (DownloadUnavailableException)
-        {
-            throw;
+            versions.AddRange(FilterVersions(xml, prefixes));
         }
         catch (Exception ex)
         {
-            throw new Exception("无法访问 NeoForge 仓库（网络可能被拦截），可改用 Forge。原始错误：" + ex.Message);
+            errors.Add(ex.Message);
         }
 
+        if (versions.Count == 0)
+        {
+            // 旧构件：1.20.1 等
+            try
+            {
+                var legacy = await ResilientHttp.GetStringAsync(
+                    $"{Mirror.NeoForgeMaven}/net/neoforged/forge/maven-metadata.xml", 30);
+                versions.AddRange(FilterVersions(legacy, new[] { mcVersion + "-" }));
+            }
+            catch (Exception ex)
+            {
+                errors.Add(ex.Message);
+            }
+        }
+
+        if (versions.Count == 0 && errors.Count > 0)
+            throw new Exception("无法访问 NeoForge 仓库（网络可能被拦截），可改用 Forge。原始错误：" + errors[0]);
+
+        return versions
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(v => (v, Version.TryParse(v, out var parsed) ? parsed : new Version(0, 0)))
+            .OrderByDescending(x => x.Item2)
+            .ThenByDescending(x => x.v, StringComparer.OrdinalIgnoreCase)
+            .Select(x => (x.v, x.v))
+            .ToList();
+    }
+
+    /// <summary>从 maven-metadata.xml 里挑出符合前缀的版本号。</summary>
+    private static IEnumerable<string> FilterVersions(string xml, IEnumerable<string> prefixes)
+    {
+        var list = prefixes.ToList();
         var doc = XDocument.Parse(xml);
         return doc.Descendants("version")
             .Select(x => x.Value.Trim())
-            .Where(v => v.StartsWith(prefix, StringComparison.Ordinal))
-            .Select(v => (v, Version.TryParse(v, out var p) ? p : new Version(0, 0)))
-            .OrderByDescending(x => x.Item2)
-            .Select(x => (x.v, x.v))
-            .ToList();
+            .Where(v => v.Length > 0 && list.Any(p => v.StartsWith(p, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>使用官方安装器安装 Forge。</summary>
@@ -323,7 +359,7 @@ public static class McInstaller
 
         EnsureLauncherProfiles(gameDir);
         log.Report("运行 Forge 安装器（首次可能较慢）");
-        await RunInstallerAsync(installer, gameDir, log, ct);
+        await RunInstallerAsync(installer, gameDir, mcVersion, log, ct);
         progress.Report(1);
 
         var versionId = $"{mcVersion}-forge-{forgeVersion}";
@@ -347,8 +383,11 @@ public static class McInstaller
                 throw new Exception($"NeoForge 没有适用于 {mcVersion} 的版本（1.20.1 及更早请使用 Forge）。");
             version = versions[0].Value;
         }
-        var installerUrl = $"{Mirror.NeoForgeMaven}/net/neoforged/neoforge/{version}/neoforge-{version}-installer.jar";
-        var installer = Path.Combine(gameDir, "installers", $"neoforge-{version}-installer.jar");
+        // 1.20.1 等旧版本使用 net/neoforged/forge 构件，版本号形如 1.20.1-47.1.x
+        var legacy = version.StartsWith(mcVersion + "-", StringComparison.OrdinalIgnoreCase);
+        var artifact = legacy ? "forge" : "neoforge";
+        var installerUrl = $"{Mirror.NeoForgeMaven}/net/neoforged/{artifact}/{version}/{artifact}-{version}-installer.jar";
+        var installer = Path.Combine(gameDir, "installers", $"{artifact}-{version}-installer.jar");
 
         log.Report($"下载 NeoForge 安装器 {version}");
         progress.Report(0.6);
@@ -364,12 +403,21 @@ public static class McInstaller
 
         EnsureLauncherProfiles(gameDir);
         log.Report("运行 NeoForge 安装器（首次可能较慢）");
-        await RunInstallerAsync(installer, gameDir, log, ct);
+        await RunInstallerAsync(installer, gameDir, mcVersion, log, ct);
         progress.Report(1);
 
-        var versionId = "neoforge-" + version;
+        // 安装器建出来的版本目录名不固定（neoforge-<版本>、<MC>-neoforge-<版本> 等），按候选顺序找一遍
+        var candidates = legacy
+            ? new[]
+            {
+                $"{mcVersion}-neoforge-{version[(mcVersion.Length + 1)..]}",
+                $"{mcVersion}-forge-{version[(mcVersion.Length + 1)..]}",
+                "neoforge-" + version
+            }
+            : new[] { "neoforge-" + version, "neoforge-" + version + "-" + mcVersion, "neoforge-" + mcVersion + "-" + version };
+        var versionId = candidates.FirstOrDefault(id => Directory.Exists(Path.Combine(gameDir, "versions", id))) ?? candidates[0];
         log.Report("NeoForge 安装完成：" + versionId);
-        return Directory.Exists(Path.Combine(gameDir, "versions", versionId)) ? versionId : version;
+        return versionId;
     }
 
     private static async Task EnsureVanillaAsync(string mcVersion, string gameDir, IProgress<string> log,
@@ -389,10 +437,14 @@ public static class McInstaller
             "{\"profiles\":{},\"settings\":{\"enableSnapshots\":false,\"enableAdvanced\":false,\"keepLauncherOpen\":false,\"showMenu\":false,\"showGameLog\":false,\"locale\":\"zh_CN\"},\"version\":3}");
     }
 
-    private static async Task RunInstallerAsync(string installer, string gameDir, IProgress<string> log, CancellationToken ct)
+    private static async Task RunInstallerAsync(string installer, string gameDir, string mcVersion,
+        IProgress<string> log, CancellationToken ct)
     {
-        var java = JavaFinder.Pick(17);
+        // NeoForge / Forge 安装器同样需要匹配的 Java（1.20.5+ 需要 Java 21）
+        var required = JavaFinder.GuessMajor(mcVersion);
+        var java = JavaFinder.PickCompatible(required) ?? JavaFinder.Pick(required);
         if (java == null) throw new Exception("未找到 Java，无法运行安装器。请先在设置中指定 java.exe。");
+        log.Report($"使用 Java {java.Major} 运行安装器");
 
         var psi = new ProcessStartInfo(java.Path)
         {
@@ -406,9 +458,21 @@ public static class McInstaller
         psi.ArgumentList.Add(installer);
         psi.ArgumentList.Add("--installClient");
 
+        var tail = new Queue<string>();
+        void OnLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+            log.Report(line);
+            lock (tail)
+            {
+                tail.Enqueue(line);
+                while (tail.Count > 25) tail.Dequeue();
+            }
+        }
+
         using var process = new Process { StartInfo = psi };
-        process.OutputDataReceived += (_, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) log.Report(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (!string.IsNullOrWhiteSpace(e.Data)) log.Report(e.Data); };
+        process.OutputDataReceived += (_, e) => OnLine(e.Data);
+        process.ErrorDataReceived += (_, e) => OnLine(e.Data);
 
         process.Start();
         process.BeginOutputReadLine();
@@ -416,7 +480,15 @@ public static class McInstaller
         await process.WaitForExitAsync(ct);
 
         if (process.ExitCode != 0)
-            throw new Exception($"安装器退出代码 {process.ExitCode}，请查看下方日志。");
+        {
+            string detail;
+            lock (tail) detail = string.Join(Environment.NewLine, tail);
+            Logger.Warn($"安装器退出代码 {process.ExitCode}：{detail}");
+            throw new Exception($"安装器退出代码 {process.ExitCode}。" +
+                                (detail.Length > 0
+                                    ? Environment.NewLine + "安装器最后输出：" + Environment.NewLine + detail
+                                    : "请确认 Java 版本与网络是否正常。"));
+        }
     }
 
     private static void ExtractNatives(string gameDir, string versionDir, List<LibraryEntry> libraries,

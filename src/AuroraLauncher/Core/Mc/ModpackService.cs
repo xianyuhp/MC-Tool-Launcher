@@ -131,10 +131,11 @@ public static class ModpackService
         var overrideCount = 0;
         foreach (var entry in zip.Entries)
         {
+            if (entry.FullName.EndsWith("/", StringComparison.Ordinal)) continue; // 目录条目
             var name = entry.FullName.Replace('/', '\\');
             if (!name.StartsWith("overrides\\", StringComparison.OrdinalIgnoreCase)) continue;
             var relative = name["overrides\\".Length..];
-            if (relative.Length == 0) continue;
+            if (relative.Length == 0 || relative.EndsWith("\\", StringComparison.Ordinal)) continue;
             var destination = Path.Combine(target, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             entry.ExtractToFile(destination, true);

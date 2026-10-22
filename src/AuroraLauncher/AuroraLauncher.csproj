@@ -11,10 +11,10 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
-    <Version>1.31.0</Version>
+    <Version>1.32.0</Version>
     <Product>MC Tool Launcher</Product>
     <Company>Aurora</Company>
-    <FileVersion>1.31.0.0</FileVersion>
+    <FileVersion>1.32.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
