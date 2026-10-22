@@ -31,6 +31,8 @@ internal static class Program
             return PackCheck(args[1], args[2]).GetAwaiter().GetResult();
         if (args.Length > 1 && args[0] == "install")
             return InstallCheck(args[1], args[2]).GetAwaiter().GetResult();
+        if (args.Length > 2 && args[0] == "prefetch")
+            return PrefetchCheck(args[1], args[2]).GetAwaiter().GetResult();
         if (args.Length > 1 && args[0] == "launch")
             return LaunchCheck(args[1], args[2], args.Length > 3 ? args[3] : null).GetAwaiter().GetResult();
         if (args.Length > 1 && args[0] == "render")
@@ -991,6 +993,26 @@ internal static class Program
         catch (Exception ex)
         {
             Console.WriteLine("PACK FAILED: " + ex.Message);
+            return 1;
+        }
+    }
+
+    private static async Task<int> PrefetchCheck(string installer, string gameDir)
+    {
+        var log = new Progress<string>(s => Console.WriteLine("  " + s));
+        try
+        {
+            await McInstaller.PrefetchInstallerLibrariesAsync(installer, gameDir, log, CancellationToken.None);
+            var libsDir = Path.Combine(gameDir, "libraries");
+            var jars = Directory.Exists(libsDir)
+                ? Directory.GetFiles(libsDir, "*.jar", SearchOption.AllDirectories).Length
+                : 0;
+            Console.WriteLine($"PREFETCH RESULT: jars={jars}");
+            return jars > 20 ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("PREFETCH FAILED: " + ex);
             return 1;
         }
     }

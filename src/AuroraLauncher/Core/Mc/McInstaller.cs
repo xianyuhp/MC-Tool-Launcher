@@ -576,6 +576,10 @@ public static class McInstaller
         if (java == null) throw new Exception("未找到 Java，无法运行安装器。请先在设置中指定 java.exe。");
         log.Report($"使用 Java {java.Major} 运行安装器");
 
+        // 安装器只会连官方 maven.neoforged.net，DNS 被污染时每个依赖都连接超时；
+        // 先用我们自己的镜像容错下载好，安装器检查到文件已存在就会跳过下载。
+        await PrefetchInstallerLibrariesAsync(installer, gameDir, log, ct);
+
         var (code, tail) = await RunInstallerOnceAsync(java.Path, installer, gameDir, true, log, ct);
         if (code == 0) return;
 
@@ -589,11 +593,115 @@ public static class McInstaller
             if (code == 0) return;
         }
 
+        // 安装器的详细异常只写在自身日志里，取出来给用户看
+        var detail = ReadInstallerLogTail(gameDir, installer);
+        if (detail.Length > 0) tail += Environment.NewLine + detail;
+
         Logger.Warn($"安装器退出代码 {code}：{tail}");
         throw new Exception($"安装器退出代码 {code}。" +
                             (tail.Length > 0
                                 ? Environment.NewLine + "安装器最后输出：" + Environment.NewLine + tail
                                 : "请确认 Java 版本与网络是否正常。"));
+    }
+
+    /// <summary>
+    /// 预下载 Forge / NeoForge 安装器自带 json 里声明的全部依赖到 &lt;gameDir&gt;/libraries。
+    /// 官方安装器固定访问 maven.neoforged.net，该域名解析到错误 IP 时每个依赖都会 SocketTimeout；
+    /// 我们走镜像（forgecdn / BMCLAPI）先放好文件，安装器校验 SHA1 通过后就不会再联网下载。
+    /// </summary>
+    public static async Task PrefetchInstallerLibrariesAsync(string installer, string gameDir,
+        IProgress<string> log, CancellationToken ct)
+    {
+        var files = new List<(string Url, string Path, string Sha1)>();
+        try
+        {
+            using var zip = ZipFile.OpenRead(installer);
+            foreach (var name in new[] { "version.json", "install_profile.json" })
+            {
+                var entry = zip.GetEntry(name);
+                if (entry == null) continue;
+                using var stream = entry.Open();
+                using var doc = JsonDocument.Parse(stream);
+                if (!doc.RootElement.TryGetProperty("libraries", out var libraries)) continue;
+                foreach (var lib in libraries.EnumerateArray())
+                {
+                    if (!lib.TryGetProperty("downloads", out var downloads)) continue;
+                    if (!downloads.TryGetProperty("artifact", out var artifact)) continue;
+                    var file = VersionJson.ParseFile(artifact);
+                    if (file == null) continue;
+                    files.Add((file.Url, Path.Combine(gameDir, "libraries", file.Path.Replace('/', '\\')), file.Sha1));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("读取安装器依赖清单失败：" + ex.Message);
+            return;
+        }
+
+        files = files
+            .GroupBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+        if (files.Count == 0) return;
+
+        log.Report($"预先补齐安装器依赖（{files.Count} 个文件，走镜像下载）");
+        var failed = 0;
+        string firstError = null;
+        using var gate = new SemaphoreSlim(8);
+        var tasks = files.Select(async file =>
+        {
+            await gate.WaitAsync(ct);
+            try
+            {
+                await McApi.DownloadAsync(file.Url, file.Path, file.Sha1, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Interlocked.Increment(ref failed);
+                firstError ??= Path.GetFileName(file.Path) + "：" + ex.Message;
+            }
+            finally
+            {
+                gate.Release();
+            }
+        });
+        await Task.WhenAll(tasks);
+
+        if (failed > 0)
+            log.Report($"有 {failed} 个依赖未能提前下载（安装器会自己再试）：{firstError}");
+        else
+            log.Report("安装器依赖已就绪，开始安装");
+    }
+
+    /// <summary>读取安装器自己写的日志末尾（其中的 Exception 才是真正的失败原因）。</summary>
+    private static string ReadInstallerLogTail(string gameDir, string installer)
+    {
+        var candidates = new[]
+        {
+            Path.Combine(gameDir, Path.GetFileName(installer) + ".log"),
+            Path.Combine(gameDir, "installer.log")
+        };
+        foreach (var path in candidates)
+        {
+            try
+            {
+                if (!File.Exists(path)) continue;
+                var lines = File.ReadLines(path).TakeLast(200).ToList();
+                var important = lines.Where(l =>
+                    l.Contains("Exception", StringComparison.OrdinalIgnoreCase) ||
+                    l.Contains("Caused by", StringComparison.OrdinalIgnoreCase) ||
+                    l.Contains("There was an error", StringComparison.OrdinalIgnoreCase)).TakeLast(6).ToList();
+                var tail = important.Count > 0 ? important : lines.TakeLast(8).ToList();
+                return $"安装器日志（{path}）：" + Environment.NewLine + string.Join(Environment.NewLine, tail);
+            }
+            catch { }
+        }
+        return "";
     }
 
     private static async Task<(int Code, string Tail)> RunInstallerOnceAsync(string java, string installer,
