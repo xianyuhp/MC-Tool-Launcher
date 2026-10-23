@@ -682,6 +682,48 @@ public partial class ServerHelperView : UserControl, IRefreshable
         InstanceList.SelectedIndex = index >= 0 ? index : 0;
     }
 
+    /// <summary>右键时先选中鼠标下的实例，避免菜单操作到别的实例。</summary>
+    private void InstanceList_PreviewRightDown(object sender, MouseButtonEventArgs e)
+    {
+        var item = ItemsControl.ContainerFromElement(InstanceList, e.OriginalSource as DependencyObject) as ListBoxItem;
+        if (item != null) item.IsSelected = true;
+    }
+
+    /// <summary>删除选中的服务端核心版本（整个实例文件夹）。</summary>
+    private void DeleteInstance_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedInstance() is not { } instance) return;
+
+        if (_runner != null && _runner.IsRunning &&
+            _runner.Instance.Dir.Equals(instance.Dir, StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show("该服务端正在运行，请先停止后再删除。", "删除核心版本",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(Window.GetWindow(this),
+            $"确定删除核心版本「{instance.Name}」吗？\n目录：{instance.Dir}\n\n" +
+            "会删除整个实例文件夹（含存档、配置与服务端文件），不可恢复。",
+            "删除核心版本", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        try
+        {
+            if (Directory.Exists(instance.Dir)) Directory.Delete(instance.Dir, true);
+            Logger.Info("已删除服务端核心版本：" + instance.Dir);
+            if (_serverDir.Equals(instance.Dir, StringComparison.OrdinalIgnoreCase)) _serverDir = "";
+            RefreshInstances();
+            RunHint.Text = "已删除核心版本：" + instance.Name;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("删除服务端核心版本失败：" + ex.Message);
+            MessageBox.Show("删除失败：" + ex.Message, "删除核心版本",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private void Instance_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (SelectedInstance() is not { } instance) return;

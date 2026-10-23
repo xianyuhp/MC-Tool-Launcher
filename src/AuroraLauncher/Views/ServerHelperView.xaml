@@ -234,7 +234,8 @@
 
                     <ListBox x:Name="InstanceList" Grid.Row="2" Style="{StaticResource DarkList}"
                              ItemContainerStyle="{StaticResource DarkItem}" FontSize="12"
-                             SelectionChanged="Instance_SelectionChanged">
+                             SelectionChanged="Instance_SelectionChanged"
+                             PreviewMouseRightButtonDown="InstanceList_PreviewRightDown">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel>
@@ -245,6 +246,15 @@
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
+                        <ListBox.ContextMenu>
+                            <ContextMenu Style="{StaticResource DarkMenu}">
+                                <MenuItem Header="启动服务端" Click="StartServer_Click" />
+                                <MenuItem Header="后台窗口" Click="OpenConsole_Click" />
+                                <MenuItem Header="打开实例目录" Click="OpenInstanceDir_Click" />
+                                <Separator />
+                                <MenuItem Header="删除核心版本…" Click="DeleteInstance_Click" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
                     </ListBox>
 
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
