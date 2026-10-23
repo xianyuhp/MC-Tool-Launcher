@@ -266,12 +266,43 @@ public static class ServerCores
     {
         var loaders = await McApi.GetFabricLoadersAsync(mc);
         if (loaders.Count == 0) throw new Exception($"Fabric 不支持 {mc}。");
+
+        // Fabric 的服务端启动器地址需要带上安装器版本，缺这一段会 404（之前所有版本都下载失败的原因）
+        var installer = await GetFabricInstallerVersionAsync();
         return loaders.Take(8).Select(l => new ServerBuild(
             l.Version,
             l.Version + (l.Stable ? "（稳定）" : ""),
-            $"{Mirror.FabricMeta}/v2/versions/loader/{mc}/{l.Version}/server/jar",
+            $"{Mirror.FabricMeta}/v2/versions/loader/{mc}/{l.Version}/{installer}/server/jar",
             $"fabric-server-{mc}-{l.Version}.jar",
-            "Fabric 服务端启动器：直接 java -jar 运行（模组放 mods 文件夹）")).ToList();
+            "Fabric 服务端启动器：首次运行会自动下载原版服务端并生成 eula.txt，模组放 mods 文件夹")).ToList();
+    }
+
+    private static string _fabricInstallerVersion;
+
+    /// <summary>取 Fabric 安装器版本（服务端启动器 URL 的必需参数），失败时用已知稳定版本兜底。</summary>
+    private static async Task<string> GetFabricInstallerVersionAsync()
+    {
+        if (!string.IsNullOrEmpty(_fabricInstallerVersion)) return _fabricInstallerVersion;
+        try
+        {
+            var json = await GetTextAsync($"{Mirror.FabricMeta}/v2/versions/installer", 20);
+            using var doc = JsonDocument.Parse(json);
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                if (!item.TryGetProperty("version", out var version)) continue;
+                var stable = item.TryGetProperty("stable", out var flag) && flag.GetBoolean();
+                if (!stable) continue;
+                _fabricInstallerVersion = version.GetString();
+                break;
+            }
+            if (string.IsNullOrEmpty(_fabricInstallerVersion) && doc.RootElement.GetArrayLength() > 0)
+                _fabricInstallerVersion = doc.RootElement[0].GetProperty("version").GetString();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("获取 Fabric 安装器版本失败：" + ex.Message);
+        }
+        return _fabricInstallerVersion ?? "1.1.2";
     }
 
     private static async Task<List<ServerBuild>> GetForgeAsync(string mc)

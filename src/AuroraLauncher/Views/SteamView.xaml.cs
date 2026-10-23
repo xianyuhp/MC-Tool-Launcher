@@ -49,7 +49,12 @@ public partial class SteamView : UserControl
         try
         {
             var games = await SteamService.GetDiscountedTopAsync();
-            FillResults(games, games.Count == 0 ? "暂无折扣数据" : $"正在折扣的热销游戏（{games.Count}）");
+            var status = games.Count == 0
+                ? (SteamService.LastLoadNote.Length > 0 ? SteamService.LastLoadNote : "暂无折扣数据")
+                : SteamService.LastLoadNote.Length > 0
+                    ? $"{SteamService.LastLoadNote}（{games.Count} 个）"
+                    : $"正在折扣的热销游戏（{games.Count}）";
+            FillResults(games, status);
         }
         catch (Exception ex)
         {
@@ -57,6 +62,8 @@ public partial class SteamView : UserControl
             Logger.Warn("Steam 特惠加载失败：" + ex.Message);
         }
     }
+
+    private async void RefreshFeatured_Click(object sender, RoutedEventArgs e) => await LoadDiscountedAsync();
 
     private async void Search_Click(object sender, RoutedEventArgs e) => await SearchAsync();
 

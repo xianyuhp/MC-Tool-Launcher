@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -119,40 +120,116 @@ public static class SteamService
     private static bool ContainsChinese(string text) =>
         text.Any(c => c >= 0x4E00 && c <= 0x9FFF);
 
-    /// <summary>当前正在折扣的热销游戏（Steam 首页特惠）。</summary>
+    /// <summary>当前正在折扣的热销游戏（Steam 首页特惠）。网络失败时自动回退本地缓存。</summary>
     public static async Task<List<SteamGame>> GetDiscountedTopAsync(CancellationToken ct = default)
     {
-        foreach (var (cc, lang) in new[] { ("cn", "schinese"), ("us", "english") })
-        {
-            try
-            {
-                var url = $"https://store.steampowered.com/api/featuredcategories?cc={cc}&l={lang}";
-                using var doc = JsonDocument.Parse(await GetTextAsync(url, 12, ct));
-                if (!doc.RootElement.TryGetProperty("specials", out var specials) ||
-                    !specials.TryGetProperty("items", out var items)) continue;
+        LastLoadNote = "";
+        Exception last = null;
 
-                var list = new List<SteamGame>();
-                foreach (var item in items.EnumerateArray())
-                {
-                    var id = item.GetProperty("id").GetInt64();
-                    var name = CleanText(item.GetProperty("name").GetString() ?? "");
-                    var image = item.TryGetProperty("header_image", out var header) ? header.GetString()
-                        : item.TryGetProperty("large_capsule_image", out var large) ? large.GetString()
-                        : item.TryGetProperty("small_capsule_image", out var small) ? small.GetString() : "";
-                    var discount = item.TryGetProperty("discount_percent", out var d) ? d.GetInt32() : 0;
-                    var final = item.TryGetProperty("final_price", out var f) ? f.GetInt64() : 0;
-                    var currency = cc == "us" ? "USD" : "CNY";
-                    var priceText = final > 0 ? $"{(discount > 0 ? "-" + discount + "%  " : "")}{FormatPrice(final, currency)}" : "免费";
-                    list.Add(new SteamGame(id, name, image ?? "", priceText, $"https://store.steampowered.com/app/{id}/"));
-                }
-                if (list.Count > 0) return list;
-            }
-            catch (Exception ex)
+        foreach (var (cc, lang, attempts) in new[] { ("cn", "schinese", 2), ("us", "english", 1) })
+        {
+            for (var attempt = 1; attempt <= attempts; attempt++)
             {
-                Logger.Warn($"Steam 特惠列表失败（cc={cc}）：{ex.Message}");
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var url = $"https://store.steampowered.com/api/featuredcategories?cc={cc}&l={lang}";
+                    using var doc = JsonDocument.Parse(await GetTextAsync(url, 10, ct));
+                    if (!doc.RootElement.TryGetProperty("specials", out var specials) ||
+                        !specials.TryGetProperty("items", out var items)) continue;
+
+                    var list = new List<SteamGame>();
+                    foreach (var item in items.EnumerateArray())
+                    {
+                        var id = item.GetProperty("id").GetInt64();
+                        var name = CleanText(item.GetProperty("name").GetString() ?? "");
+                        var image = item.TryGetProperty("header_image", out var header) ? header.GetString()
+                            : item.TryGetProperty("large_capsule_image", out var large) ? large.GetString()
+                            : item.TryGetProperty("small_capsule_image", out var small) ? small.GetString() : "";
+                        var discount = item.TryGetProperty("discount_percent", out var d) ? d.GetInt32() : 0;
+                        var final = item.TryGetProperty("final_price", out var f) ? f.GetInt64() : 0;
+                        var currency = cc == "us" ? "USD" : "CNY";
+                        var priceText = final > 0 ? $"{(discount > 0 ? "-" + discount + "%  " : "")}{FormatPrice(final, currency)}" : "免费";
+                        list.Add(new SteamGame(id, name, image ?? "", priceText, $"https://store.steampowered.com/app/{id}/"));
+                    }
+                    if (list.Count > 0)
+                    {
+                        SaveFeaturedCache(list);
+                        return list;
+                    }
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    Logger.Warn($"Steam 特惠列表失败（cc={cc}，第 {attempt} 次）：{ex.Message}");
+                }
+
+                try { await Task.Delay(500 * attempt, ct); }
+                catch (OperationCanceledException) { throw; }
             }
         }
+
+        // 网络完全不可用时用上次成功的数据，避免板块空白
+        var cached = LoadFeaturedCache(out var savedAt);
+        if (cached.Count > 0)
+        {
+            LastLoadNote = $"无法连接 Steam 商店，显示 {savedAt:MM-dd HH:mm} 的缓存";
+            Logger.Warn("Steam 特惠改用本地缓存：" + (last?.Message ?? "无数据"));
+            return cached;
+        }
+
+        LastLoadNote = "无法连接 Steam 商店（网络被拦截或超时），请开加速器后点「刷新特惠」";
+        Logger.Warn("Steam 特惠加载失败且没有缓存：" + (last?.Message ?? "无数据"));
         return new List<SteamGame>();
+    }
+
+    /// <summary>上次加载的提示（用了缓存时告诉界面）。</summary>
+    public static string LastLoadNote { get; private set; } = "";
+
+    private static readonly string FeaturedCachePath = Path.Combine(Settings.ConfigDir, "steam-featured.json");
+
+    private sealed class FeaturedCache
+    {
+        public DateTime SavedAt { get; set; }
+        public List<SteamGame> Games { get; set; } = new();
+    }
+
+    /// <summary>把折扣列表写到本地，供下次网络异常时兜底。</summary>
+    private static void SaveFeaturedCache(List<SteamGame> games)
+    {
+        try
+        {
+            Directory.CreateDirectory(Settings.ConfigDir);
+            var payload = new FeaturedCache { SavedAt = DateTime.Now, Games = games };
+            File.WriteAllText(FeaturedCachePath, JsonSerializer.Serialize(payload));
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("保存 Steam 缓存失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>读取上次成功保存的折扣列表。</summary>
+    private static List<SteamGame> LoadFeaturedCache(out DateTime savedAt)
+    {
+        savedAt = DateTime.MinValue;
+        try
+        {
+            if (!File.Exists(FeaturedCachePath)) return new List<SteamGame>();
+            var payload = JsonSerializer.Deserialize<FeaturedCache>(File.ReadAllText(FeaturedCachePath));
+            if (payload?.Games == null || payload.Games.Count == 0) return new List<SteamGame>();
+            savedAt = payload.SavedAt;
+            return payload.Games;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn("读取 Steam 缓存失败：" + ex.Message);
+            return new List<SteamGame>();
+        }
     }
 
     /// <summary>获取某游戏的各版本/套餐与价格（类似 Steam 客户端右侧列表）。</summary>

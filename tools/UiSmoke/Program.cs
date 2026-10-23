@@ -23,6 +23,10 @@ internal static class Program
             return CommandNamesCheck();
         if (args.Length > 0 && args[0] == "apikeys")
             return ApiKeysCheck();
+        if (args.Length > 0 && args[0] == "steamtop")
+            return SteamTopCheck().GetAwaiter().GetResult();
+        if (args.Length > 2 && args[0] == "serverbuilds")
+            return ServerBuildsCheck(args[1], args[2]).GetAwaiter().GetResult();
         if (args.Length > 1 && args[0] == "crash")
             return CrashCheck(args[1], args.Length > 2 ? int.Parse(args[2]) : 1);
         if (args.Length > 1 && args[0] == "rendercrash")
@@ -1048,6 +1052,53 @@ internal static class Program
         using (var fs = File.Create(path)) encoder.Save(fs);
         Console.WriteLine("rendered -> " + path);
         return 0;
+    }
+
+    /// <summary>列出某个核心的服务端构建，并检查下载地址是否可访问。</summary>
+    private static async Task<int> ServerBuildsCheck(string core, string mc)
+    {
+        Settings.Load();
+        try
+        {
+            var builds = await AuroraLauncher.Core.Mc.ServerCores.GetBuildsAsync(core, mc);
+            Console.WriteLine($"BUILDS {core} / {mc}: {builds.Count}");
+            foreach (var build in builds.Take(3))
+                Console.WriteLine($"  {build.Value} | {build.FileName} | {build.Url}");
+
+            var first = builds.FirstOrDefault();
+            if (first == null) return 1;
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, first.Url);
+            request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 1023);
+            using var response = await client.SendAsync(request, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+            Console.WriteLine($"  HTTP {(int)response.StatusCode} len={response.Content.Headers.ContentLength}");
+            return response.IsSuccessStatusCode ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("SERVERBUILDS FAILED: " + ex.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>测试 Steam 折扣列表与本地缓存。</summary>
+    private static async Task<int> SteamTopCheck()
+    {
+        Settings.Load();
+        try
+        {
+            var games = await AuroraLauncher.Core.SteamService.GetDiscountedTopAsync();
+            Console.WriteLine($"STEAM TOP: {games.Count} note=\"{AuroraLauncher.Core.SteamService.LastLoadNote}\"");
+            foreach (var game in games.Take(3)) Console.WriteLine($"  {game.Name} | {game.PriceText}");
+            var cache = Path.Combine(Settings.ConfigDir, "steam-featured.json");
+            Console.WriteLine($"  cache exists={File.Exists(cache)}");
+            return games.Count > 0 ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("STEAM FAILED: " + ex.Message);
+            return 1;
+        }
     }
 
     private static int CrashCheck(string reportFile, int exitCode)
