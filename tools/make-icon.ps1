@@ -75,7 +75,7 @@ foreach ($item in $pngs) {
 foreach ($item in $pngs) { $bw.Write($item[1]) }
 $bw.Flush()
 
-$target = Join-Path $PSScriptRoot "..\src\AuroraLauncher\app.ico"
+$target = Join-Path $PSScriptRoot "..\src\MCTL\app.ico"
 [System.IO.File]::WriteAllBytes((Resolve-Path (Split-Path $target -Parent)).Path + "\app.ico", $out.ToArray())
 $bw.Dispose()
 "saved: $target ($((Get-Item $target).Length) bytes)"

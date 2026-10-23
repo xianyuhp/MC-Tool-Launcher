@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MCTL</AssemblyName>
+    <RootNamespace>MCTL</RootNamespace>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <SatelliteResourceLanguages>zh-Hans</SatelliteResourceLanguages>
+    <Version>1.36</Version>
+    <Product>MC Tool Launcher</Product>
+    <Company>Aurora</Company>
+    <FileVersion>1.36.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Core\Mods\modnames.seed.json" />
+    <!-- 界面标题栏使用的图标（exe 图标由 ApplicationIcon 指定） -->
+    <Resource Include="app.ico" />
+    <!-- 内置默认皮肤，首次启动无需联网即可用正确贴图建模 -->
+    <EmbeddedResource Include="Assets\default-skin.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('ApiKeys.local.bin')">
+    <EmbeddedResource Include="ApiKeys.local.bin" LogicalName="MCTL.ApiKeys.local.bin" />
+  </ItemGroup>
+
+  <Target Name="PackApiKeysPayload" BeforeTargets="PrepareResources"
+          Inputs="ApiKeys.local.json" Outputs="ApiKeys.local.bin"
+          Condition="Exists('ApiKeys.local.json')">
+    <Exec Command="dotnet run --project &quot;$(MSBuildProjectDirectory)\..\..\tools\KeyPacker\KeyPacker.csproj&quot; -c Release -- &quot;$(MSBuildProjectDirectory)\ApiKeys.local.json&quot; &quot;$(MSBuildProjectDirectory)\ApiKeys.local.bin&quot;" />
+  </Target>
+
+</Project>
+

@@ -29,8 +29,8 @@ api-keys.json
 # ---- 本地 API 凭据（正式版构建用，禁止提交） ----
 ApiKeys.local.json
 ApiKeys.local.bin
-src/AuroraLauncher/ApiKeys.local.json
-src/AuroraLauncher/ApiKeys.local.bin
+src/MCTL/ApiKeys.local.json
+src/MCTL/ApiKeys.local.bin
 
 # ---- 不公开的参考源码 / 调试截图 ----
 src_off/

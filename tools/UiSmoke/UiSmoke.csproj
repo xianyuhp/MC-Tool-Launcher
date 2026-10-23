@@ -8,6 +8,6 @@
     <StartupObject>UiSmoke.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AuroraLauncher\AuroraLauncher.csproj" />
+    <ProjectReference Include="..\..\src\MCTL\MCTL.csproj" />
   </ItemGroup>
 </Project>

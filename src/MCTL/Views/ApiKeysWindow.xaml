@@ -1,0 +1,96 @@
+<Window x:Class="MCTL.Views.ApiKeysWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="API 凭据 · 开源版本" Width="620" Height="600"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" ResizeMode="NoResize"
+        KeyDown="Window_KeyDown">
+
+    <Border Background="{DynamicResource WindowBgBrush}" CornerRadius="12"
+            BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1">
+        <Grid Margin="26">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 标题 -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" MouseLeftButtonDown="Header_MouseDown">
+                <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource AccentSoftBrush}">
+                    <TextBlock Text="API" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center"
+                               VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}" />
+                </Border>
+                <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="开源版本 · API 凭据" FontSize="17" FontWeight="SemiBold" />
+                    <TextBlock Text="公开仓库不内置任何官方 API 凭据，需要你自己申请" FontSize="11"
+                               Foreground="{DynamicResource SubTextBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 说明 -->
+            <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,16,0,0" Padding="16,12">
+                <StackPanel>
+                    <TextBlock Text="填好后点「保存并应用」即可生效，也可以直接编辑下面的凭据文件。"
+                               FontSize="12" TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SubTextBrush}"
+                               Text="· 微软登录：需要一个「个人 Microsoft 账户」类型的应用注册，开启“允许公共客户端流”，把 Application (client) ID 填到下方。" />
+                    <TextBlock Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SubTextBrush}"
+                               Text="· CurseForge：官方接口需要 API Key；不填时只能使用 MCIM 社区镜像（仍可搜索与下载）。" />
+                </StackPanel>
+            </Border>
+
+            <!-- 微软 -->
+            <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                <Grid>
+                    <TextBlock Text="微软客户端 ID（Application / client ID）" FontSize="11"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="打开应用注册" Style="{StaticResource Btn}" Padding="10,3" FontSize="10"
+                                Click="OpenAzure_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBox x:Name="MsBox" Style="{StaticResource Input}" Height="34" FontSize="11" Margin="0,6,0,0"
+                         ToolTip="Azure 门户 → 应用注册 → 复制「应用程序(客户端) ID」" />
+            </StackPanel>
+
+            <!-- CurseForge -->
+            <StackPanel Grid.Row="3" Margin="0,14,0,0">
+                <Grid>
+                    <TextBlock Text="CurseForge API Key" FontSize="11"
+                               Foreground="{DynamicResource SubTextBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="打开 CurseForge 控制台" Style="{StaticResource Btn}" Padding="10,3" FontSize="10"
+                                Click="OpenCurseForge_Click" />
+                    </StackPanel>
+                </Grid>
+                <TextBox x:Name="CfBox" Style="{StaticResource Input}" Height="34" FontSize="11" Margin="0,6,0,0"
+                         ToolTip="console.curseforge.com → API Keys → 创建 API Key" />
+            </StackPanel>
+
+            <!-- 状态 -->
+            <StackPanel Grid.Row="4" Margin="0,14,0,0">
+                <TextBlock x:Name="PathText" FontSize="10" TextWrapping="Wrap"
+                           Foreground="{DynamicResource SubTextBrush}" />
+                <TextBlock x:Name="StatusText" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                           Foreground="{DynamicResource AccentBrush}" />
+            </StackPanel>
+
+            <!-- 按钮 -->
+            <Grid Grid.Row="5" Margin="0,8,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Button Content="保存并应用" Style="{StaticResource PrimaryBtn}" Padding="16,7" Click="Save_Click" />
+                    <Button Content="打开凭据文件" Style="{StaticResource Btn}" Padding="14,7" Margin="8,0,0,0"
+                            Click="OpenFile_Click" />
+                </StackPanel>
+                <Button Content="稍后配置" Style="{StaticResource Btn}" Padding="18,7"
+                        HorizontalAlignment="Right" Click="Close_Click" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

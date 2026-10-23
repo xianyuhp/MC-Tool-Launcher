@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using AuroraLauncher.Core;
-using AuroraLauncher.Core.Mc;
+using MCTL.Core;
+using MCTL.Core.Mc;
 
 namespace UiSmoke;
 
@@ -75,46 +75,46 @@ internal static class Program
         {
             Settings.Load();
             AppLibrary.Load();
-            var app = new AuroraLauncher.App();
+            var app = new MCTL.App();
             app.InitializeComponent();
 
             Check("HomeView", () =>
             {
-                _ = new AuroraLauncher.Views.HomeView();
+                _ = new MCTL.Views.HomeView();
                 Console.WriteLine("  memory after HomeView = " + Settings.Current.MemoryMb);
             });
-            Check("DownloadView", () => _ = new AuroraLauncher.Views.DownloadView());
-            Check("LibraryView", () => _ = new AuroraLauncher.Views.LibraryView());
-            Check("SteamView", () => _ = new AuroraLauncher.Views.SteamView());
-            Check("ToolboxView", () => _ = new AuroraLauncher.Views.ToolboxView());
-            Check("ServerHelperView", () => _ = new AuroraLauncher.Views.ServerHelperView());
-            Check("ColorFontView", () => _ = new AuroraLauncher.Views.ColorFontView());
-            Check("CommandView", () => _ = new AuroraLauncher.Views.CommandView());
+            Check("DownloadView", () => _ = new MCTL.Views.DownloadView());
+            Check("LibraryView", () => _ = new MCTL.Views.LibraryView());
+            Check("SteamView", () => _ = new MCTL.Views.SteamView());
+            Check("ToolboxView", () => _ = new MCTL.Views.ToolboxView());
+            Check("ServerHelperView", () => _ = new MCTL.Views.ServerHelperView());
+            Check("ColorFontView", () => _ = new MCTL.Views.ColorFontView());
+            Check("CommandView", () => _ = new MCTL.Views.CommandView());
             Check("ModpackImportWindow", () =>
             {
-                var w = new AuroraLauncher.Views.ModpackImportWindow("test.mrpack", null);
+                var w = new MCTL.Views.ModpackImportWindow("test.mrpack", null);
                 w.Close();
             });
-            Check("SettingsView", () => _ = new AuroraLauncher.Views.SettingsView());
-            Check("LoginWindow", () => new AuroraLauncher.Views.LoginWindow().Close());
+            Check("SettingsView", () => _ = new MCTL.Views.SettingsView());
+            Check("LoginWindow", () => new MCTL.Views.LoginWindow().Close());
             Check("LoaderPickerWindow", () =>
             {
-                var w = new AuroraLauncher.Views.LoaderPickerWindow("t", "h", new[] { ("1.0", "1.0") });
+                var w = new MCTL.Views.LoaderPickerWindow("t", "h", new[] { ("1.0", "1.0") });
                 w.Close();
             });
             Check("DownloadDetailWindow", () =>
             {
-                var w = new AuroraLauncher.Views.DownloadDetailWindow(new DownloadContext("t"), AppContext.BaseDirectory);
+                var w = new MCTL.Views.DownloadDetailWindow(new DownloadContext("t"), AppContext.BaseDirectory);
                 w.Close();
             });
-            Check("PromptWindow", () => new AuroraLauncher.Views.PromptWindow("t", "h").Close());
+            Check("PromptWindow", () => new MCTL.Views.PromptWindow("t", "h").Close());
             Check("CrashWindow", () =>
             {
                 var temp = Path.Combine(Path.GetTempPath(), "aurora-crash-test");
                 Directory.CreateDirectory(temp);
                 var session = new GameSession { Process = new Process(), VersionId = "test", GameDir = temp };
                 session.Output.Add("test line");
-                var w = new AuroraLauncher.Views.CrashWindow(session, 1);
+                var w = new MCTL.Views.CrashWindow(session, 1);
                 w.Close();
             });
             Check("AppLibrary", () =>
@@ -123,7 +123,7 @@ internal static class Program
                 if (!AppLibrary.Items.Any(x => x.Path == entry.Path)) throw new Exception("条目未加入");
                 AppLibrary.Remove(entry);
             });
-            Check("MainWindow", () => _ = new AuroraLauncher.MainWindow());
+            Check("MainWindow", () => _ = new MCTL.MainWindow());
         }
         catch (Exception ex)
         {
@@ -189,7 +189,7 @@ internal static class Program
     private static async Task<int> AvatarCheck(string name)
     {
         Settings.Load();
-        var image = await AuroraLauncher.Core.Auth.AvatarService.GetAvatarAsync(name);
+        var image = await MCTL.Core.Auth.AvatarService.GetAvatarAsync(name);
         Console.WriteLine(image == null
             ? "avatar=null（回退默认头像）"
             : $"avatar={image.Width}x{image.Height}");
@@ -203,7 +203,7 @@ internal static class Program
     /// </summary>
     private static int Skin3DCheck()
     {
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
         var pixels = new byte[64 * 64 * 4];
@@ -236,7 +236,7 @@ internal static class Program
         var skin = System.Windows.Media.Imaging.BitmapSource.Create(64, 64, 96, 96,
             System.Windows.Media.PixelFormats.Bgra32, null, pixels, 64 * 4);
 
-        var view = new AuroraLauncher.Controls.Skin3DView
+        var view = new MCTL.Controls.Skin3DView
         {
             Width = 320,
             Height = 320,
@@ -338,7 +338,7 @@ internal static class Program
         Check((blended, 0, 0), "红绿交界应锐利（<=8px）", c => c.Item1 <= 8);
 
         // 全身模式：确认身体 / 腿部都渲染出来，且头部在上方
-        var body = new AuroraLauncher.Controls.Skin3DView
+        var body = new MCTL.Controls.Skin3DView
         {
             Width = 320,
             Height = 240,
@@ -386,23 +386,23 @@ internal static class Program
     /// <summary>皮肤磁盘缓存自测：拉取后写入缓存，再次启动可同步读到同一张皮肤。</summary>
     private static async Task<int> SkinCacheCheck()
     {
-        AuroraLauncher.Core.Settings.Load();
-        var dir = Path.Combine(AuroraLauncher.Core.Settings.ConfigDir, "cache", "skins");
+        MCTL.Core.Settings.Load();
+        var dir = Path.Combine(MCTL.Core.Settings.ConfigDir, "cache", "skins");
         if (Directory.Exists(dir)) Directory.Delete(dir, true);
 
-        var fresh = await AuroraLauncher.Core.SkinService.LoadDefaultSkinAsync();
+        var fresh = await MCTL.Core.SkinService.LoadDefaultSkinAsync();
         if (fresh == null)
         {
             Console.WriteLine("SKINCACHE FAILED：未取到默认皮肤");
             return 1;
         }
 
-        var bundled = AuroraLauncher.Core.SkinService.BundledDefault;
+        var bundled = MCTL.Core.SkinService.BundledDefault;
         Console.WriteLine(bundled == null
             ? "bundled=null"
             : $"bundled={bundled.Texture.PixelWidth}x{bundled.Texture.PixelHeight} slim={bundled.Slim}");
 
-        var cached = AuroraLauncher.Core.SkinService.LoadCached("default");
+        var cached = MCTL.Core.SkinService.LoadCached("default");
         Console.WriteLine($"fresh={fresh.Texture.PixelWidth}x{fresh.Texture.PixelHeight} slim={fresh.Slim}");
         Console.WriteLine($"cached={(cached == null ? "null" : cached.Texture.PixelWidth + "x" + cached.Texture.PixelHeight)} slim={cached?.Slim}");
         Console.WriteLine(Path.Combine(dir, "default.png") + " exists=" + File.Exists(Path.Combine(dir, "default.png")));
@@ -423,16 +423,16 @@ internal static class Program
     /// </summary>
     private static async Task<int> NetworkCheck()
     {
-        AuroraLauncher.Core.Settings.Load();
+        MCTL.Core.Settings.Load();
         const string official =
             "https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml";
 
         Console.WriteLine("候选源：");
-        foreach (var candidate in AuroraLauncher.Core.Net.ResilientHttp.Candidates(official))
+        foreach (var candidate in MCTL.Core.Net.ResilientHttp.Candidates(official))
             Console.WriteLine("  " + candidate);
 
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        var xml = await AuroraLauncher.Core.Net.ResilientHttp.GetStringAsync(official, 12);
+        var xml = await MCTL.Core.Net.ResilientHttp.GetStringAsync(official, 12);
         watch.Stop();
         var count = System.Text.RegularExpressions.Regex.Matches(xml, "<version>").Count;
         Console.WriteLine($"元数据：{xml.Length} 字符 / {count} 个版本，用时 {watch.Elapsed.TotalSeconds:0.0}s");
@@ -444,7 +444,7 @@ internal static class Program
 
         var target = Path.Combine(Path.GetTempPath(), "neoforge-metadata-test.xml");
         watch.Restart();
-        await AuroraLauncher.Core.Mc.McApi.DownloadAsync(official, target, "", CancellationToken.None);
+        await MCTL.Core.Mc.McApi.DownloadAsync(official, target, "", CancellationToken.None);
         watch.Stop();
         var size = new FileInfo(target).Length;
         Console.WriteLine($"下载：{size} 字节，用时 {watch.Elapsed.TotalSeconds:0.0}s");
@@ -452,12 +452,12 @@ internal static class Program
 
         try
         {
-            await AuroraLauncher.Core.Net.ResilientHttp.GetStringAsync(
+            await MCTL.Core.Net.ResilientHttp.GetStringAsync(
                 "https://maven.neoforged.net/releases/net/neoforged/neoforge/0.0.0-does-not-exist.jar", 8);
             Console.WriteLine("NETCHECK FAILED：不存在的文件竟然成功了");
             return 1;
         }
-        catch (AuroraLauncher.Core.Net.DownloadUnavailableException ex)
+        catch (MCTL.Core.Net.DownloadUnavailableException ex)
         {
             Console.WriteLine("失败提示：\n" + ex.Message);
             if (ex.OfficialPage != "https://neoforged.net/")
@@ -474,7 +474,7 @@ internal static class Program
     /// <summary>默认皮肤自测：解码混淆标识并确认能从官方拿到纹理。</summary>
     private static int DefaultSkinCheck()
     {
-        var data = AuroraLauncher.Core.SkinService.LoadDefaultSkinAsync().GetAwaiter().GetResult();
+        var data = MCTL.Core.SkinService.LoadDefaultSkinAsync().GetAwaiter().GetResult();
         if (data == null)
         {
             Console.WriteLine("DEFAULT SKIN FAILED");
@@ -511,15 +511,15 @@ internal static class Program
     /// <summary>模组文件名前缀：三种模式 + 非法字符清洗 + 查不到原样返回。</summary>
     private static int PrefixCheck()
     {
-        var sodium = new AuroraLauncher.Core.Mods.ModNameInfo("Sodium", "钠");
-        var empty = new AuroraLauncher.Core.Mods.ModNameInfo("", "");
+        var sodium = new MCTL.Core.Mods.ModNameInfo("Sodium", "钠");
+        var empty = new MCTL.Core.Mods.ModNameInfo("", "");
         var cases = new (string Actual, string Expected)[]
         {
-            (AuroraLauncher.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "chinese"), "[钠] sodium-0.5.11.jar"),
-            (AuroraLauncher.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "english"), "[Sodium] sodium-0.5.11.jar"),
-            (AuroraLauncher.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "none"), "sodium-0.5.11.jar"),
-            (AuroraLauncher.Core.Mods.ModNamePrefix.Apply("unknown.jar", empty, "chinese"), "unknown.jar"),
-            (AuroraLauncher.Core.Mods.ModNamePrefix.Apply("x.jar", new AuroraLauncher.Core.Mods.ModNameInfo("A/B:C*D", "A/B:C*D"), "chinese"), "[A_B_C_D] x.jar")
+            (MCTL.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "chinese"), "[钠] sodium-0.5.11.jar"),
+            (MCTL.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "english"), "[Sodium] sodium-0.5.11.jar"),
+            (MCTL.Core.Mods.ModNamePrefix.Apply("sodium-0.5.11.jar", sodium, "none"), "sodium-0.5.11.jar"),
+            (MCTL.Core.Mods.ModNamePrefix.Apply("unknown.jar", empty, "chinese"), "unknown.jar"),
+            (MCTL.Core.Mods.ModNamePrefix.Apply("x.jar", new MCTL.Core.Mods.ModNameInfo("A/B:C*D", "A/B:C*D"), "chinese"), "[A_B_C_D] x.jar")
         };
 
         var failures = 0;
@@ -548,23 +548,23 @@ internal static class Program
             writer.Write("{\"id\":\"examplemod\",\"name\":\"Example Mod\",\"version\":\"1.2.3\",\"description\":\"测试模组\"}");
         }
 
-        var mods = AuroraLauncher.Core.Mods.InstalledModService.Scan(dir);
+        var mods = MCTL.Core.Mods.InstalledModService.Scan(dir);
         Console.WriteLine($"scan={mods.Count} name={mods.FirstOrDefault()?.Name} id={mods.FirstOrDefault()?.ModId} enabled={mods.FirstOrDefault()?.Enabled}");
         if (mods.Count != 1 || mods[0].ModId != "examplemod" || mods[0].Name != "Example Mod") return 1;
 
         var mod = mods[0];
-        AuroraLauncher.Core.Mods.InstalledModService.SetEnabled(mod, false);
-        var disabled = AuroraLauncher.Core.Mods.InstalledModService.Scan(dir);
+        MCTL.Core.Mods.InstalledModService.SetEnabled(mod, false);
+        var disabled = MCTL.Core.Mods.InstalledModService.Scan(dir);
         Console.WriteLine($"disabled name={disabled.FirstOrDefault()?.FileName} enabled={disabled.FirstOrDefault()?.Enabled}");
         if (disabled.Count != 1 || disabled[0].Enabled) return 1;
 
-        AuroraLauncher.Core.Mods.InstalledModService.SetEnabled(disabled[0], true);
-        var enabled = AuroraLauncher.Core.Mods.InstalledModService.Scan(dir);
+        MCTL.Core.Mods.InstalledModService.SetEnabled(disabled[0], true);
+        var enabled = MCTL.Core.Mods.InstalledModService.Scan(dir);
         Console.WriteLine($"enabled name={enabled.FirstOrDefault()?.FileName} enabled={enabled.FirstOrDefault()?.Enabled}");
         if (enabled.Count != 1 || !enabled[0].Enabled) return 1;
 
-        AuroraLauncher.Core.Mods.InstalledModService.Delete(enabled[0]);
-        Console.WriteLine(AuroraLauncher.Core.Mods.InstalledModService.Scan(dir).Count == 0
+        MCTL.Core.Mods.InstalledModService.Delete(enabled[0]);
+        Console.WriteLine(MCTL.Core.Mods.InstalledModService.Scan(dir).Count == 0
             ? "MOD SERVICE OK" : "MOD SERVICE FAILED");
         return 0;
     }
@@ -573,12 +573,12 @@ internal static class Program
     private static async Task<int> ModSearchCheck(string query)
     {
         Settings.Load();
-        var result = await AuroraLauncher.Core.Mods.ModSearchService.SearchAsync(query, "mod", null, "fabric", 0, 5);
+        var result = await MCTL.Core.Mods.ModSearchService.SearchAsync(query, "mod", null, "fabric", 0, 5);
         foreach (var source in result.Sources)
             Console.WriteLine($"source {source.Label}: available={source.Available} {source.Message}");
         foreach (var entry in result.Entries)
             Console.WriteLine($"  [{entry.SourceLabel}] {entry.DisplayTitle} / slug={entry.Slug} / dl={entry.Downloads} / alt={entry.AlternateSource}");
-        Console.WriteLine("中文名表：" + AuroraLauncher.Core.Mods.ChineseNameTable.Count + " 条");
+        Console.WriteLine("中文名表：" + MCTL.Core.Mods.ChineseNameTable.Count + " 条");
         return result.Entries.Count > 0 ? 0 : 1;
     }
 
@@ -587,45 +587,45 @@ internal static class Program
     {
         Settings.Load();
         AppLibrary.Load();
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
         System.Windows.FrameworkElement page = view switch
         {
-            "download" or "download-vanilla" => new AuroraLauncher.Views.DownloadView(),
-            "color" or "color-gradient" => new AuroraLauncher.Views.ColorFontView(),
-            "settings" => new AuroraLauncher.Views.SettingsView(),
-            "toolbox" => new AuroraLauncher.Views.ToolboxView(),
-            "server" => new AuroraLauncher.Views.ServerHelperView(),
-            _ => new AuroraLauncher.Views.HomeView()
+            "download" or "download-vanilla" => new MCTL.Views.DownloadView(),
+            "color" or "color-gradient" => new MCTL.Views.ColorFontView(),
+            "settings" => new MCTL.Views.SettingsView(),
+            "toolbox" => new MCTL.Views.ToolboxView(),
+            "server" => new MCTL.Views.ServerHelperView(),
+            _ => new MCTL.Views.HomeView()
         };
 
         if (view == "servername")
         {
-            var dialog = new AuroraLauncher.Views.VersionNameDialog("Paper 1.21.1", "Paper-1.21.1",
+            var dialog = new MCTL.Views.VersionNameDialog("Paper 1.21.1", "Paper-1.21.1",
                 Settings.Current.EffectiveServerRoot, serverMode: true);
             page = (System.Windows.FrameworkElement)dialog.Content;
             dialog.Content = null;
         }
 
-        if (view == "color-gradient" && page is AuroraLauncher.Views.ColorFontView colorView)
+        if (view == "color-gradient" && page is MCTL.Views.ColorFontView colorView)
         {
             if (colorView.FindName("ModeGradient") is System.Windows.Controls.RadioButton gradient)
                 gradient.IsChecked = true;
             var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-            var stops = (List<string>)typeof(AuroraLauncher.Views.ColorFontView).GetField("_stops", flags)?.GetValue(colorView);
+            var stops = (List<string>)typeof(MCTL.Views.ColorFontView).GetField("_stops", flags)?.GetValue(colorView);
             stops?.Insert(1, "e");
-            typeof(AuroraLauncher.Views.ColorFontView).GetMethod("BuildPalettes", flags)?.Invoke(colorView, null);
+            typeof(MCTL.Views.ColorFontView).GetMethod("BuildPalettes", flags)?.Invoke(colorView, null);
         }
 
-        if (view == "download-vanilla" && page is AuroraLauncher.Views.DownloadView download)
+        if (view == "download-vanilla" && page is MCTL.Views.DownloadView download)
         {
             if (download.FindName("NavVanilla") is System.Windows.Controls.RadioButton nav) nav.IsChecked = true;
             if (download.FindName("ModPanel") is FrameworkElement mod) mod.Visibility = Visibility.Collapsed;
             if (download.FindName("VanillaPanel") is FrameworkElement vanilla) vanilla.Visibility = Visibility.Visible;
         }
 
-        if (view == "home-mod" && page is AuroraLauncher.Views.HomeView home)
+        if (view == "home-mod" && page is MCTL.Views.HomeView home)
         {
             if (home.FindName("VersionPanel") is FrameworkElement version) version.Visibility = Visibility.Collapsed;
             if (home.FindName("ModPanel") is FrameworkElement mod) mod.Visibility = Visibility.Visible;
@@ -666,10 +666,10 @@ internal static class Program
     {
         Settings.Load();
         AppLibrary.Load();
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
-        var view = new AuroraLauncher.Views.HomeView();
+        var view = new MCTL.Views.HomeView();
         if (view.FindName("VersionPanel") is System.Windows.FrameworkElement panel)
             panel.Visibility = Visibility.Visible;
 
@@ -698,7 +698,7 @@ internal static class Program
     private static int RenderTextBoxTest(string path)
     {
         Settings.Load();
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
         var panel = new System.Windows.Controls.StackPanel { Margin = new Thickness(20) };
@@ -784,10 +784,10 @@ internal static class Program
     {
         Settings.Load();
         AppLibrary.Load();
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
-        var view = new AuroraLauncher.Views.CommandView();
+        var view = new MCTL.Views.CommandView();
         var host = new System.Windows.Controls.Border
         {
             Child = view,
@@ -876,35 +876,35 @@ internal static class Program
     {
         Settings.Load();
         Settings.Current.CurseForgeApiKey = "";
-        AuroraLauncher.Core.ApiKeys.Load();
+        MCTL.Core.ApiKeys.Load();
 
-        Console.WriteLine($"msReady={AuroraLauncher.Core.ApiKeys.MicrosoftReady} " +
-                          $"cfReady={AuroraLauncher.Core.ApiKeys.CurseForgeReady} " +
-                          $"needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
-        Console.WriteLine("path=" + AuroraLauncher.Core.ApiKeys.FilePath);
-        Console.WriteLine("resources=" + string.Join(",", typeof(AuroraLauncher.Core.ApiKeys).Assembly
+        Console.WriteLine($"msReady={MCTL.Core.ApiKeys.MicrosoftReady} " +
+                          $"cfReady={MCTL.Core.ApiKeys.CurseForgeReady} " +
+                          $"needsSetup={MCTL.Core.ApiKeys.NeedsSetup}");
+        Console.WriteLine("path=" + MCTL.Core.ApiKeys.FilePath);
+        Console.WriteLine("resources=" + string.Join(",", typeof(MCTL.Core.ApiKeys).Assembly
             .GetManifestResourceNames().Where(n => n.Contains("ApiKeys", StringComparison.OrdinalIgnoreCase))));
         // 初始状态取决于构建方式：开源版为 True；带内置凭据的正式版为 False
-        var initial = AuroraLauncher.Core.ApiKeys.NeedsSetup;
+        var initial = MCTL.Core.ApiKeys.NeedsSetup;
         Console.WriteLine("builtInKeys=" + (!initial));
 
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
-        new AuroraLauncher.Views.ApiKeysWindow().Close();
+        new MCTL.Views.ApiKeysWindow().Close();
 
-        AuroraLauncher.Core.ApiKeys.Save("test-client-id", "test-key");
-        AuroraLauncher.Core.ApiKeys.Load();
-        var text = File.ReadAllText(AuroraLauncher.Core.ApiKeys.FilePath);
-        var saved = AuroraLauncher.Core.ApiKeys.MicrosoftClientId == "test-client-id" &&
-                    AuroraLauncher.Core.ApiKeys.CurseForgeKey == "test-key" &&
+        MCTL.Core.ApiKeys.Save("test-client-id", "test-key");
+        MCTL.Core.ApiKeys.Load();
+        var text = File.ReadAllText(MCTL.Core.ApiKeys.FilePath);
+        var saved = MCTL.Core.ApiKeys.MicrosoftClientId == "test-client-id" &&
+                    MCTL.Core.ApiKeys.CurseForgeKey == "test-key" &&
                     text.Contains("test-key", StringComparison.Ordinal);
-        Console.WriteLine($"afterSave ms={AuroraLauncher.Core.ApiKeys.MicrosoftClientId} " +
-                          $"cf={AuroraLauncher.Core.ApiKeys.CurseForgeKey} needsSetup={AuroraLauncher.Core.ApiKeys.NeedsSetup}");
+        Console.WriteLine($"afterSave ms={MCTL.Core.ApiKeys.MicrosoftClientId} " +
+                          $"cf={MCTL.Core.ApiKeys.CurseForgeKey} needsSetup={MCTL.Core.ApiKeys.NeedsSetup}");
 
-        File.Delete(AuroraLauncher.Core.ApiKeys.FilePath);
-        AuroraLauncher.Core.ApiKeys.Load();
+        File.Delete(MCTL.Core.ApiKeys.FilePath);
+        MCTL.Core.ApiKeys.Load();
         // 删掉配置文件后应回到构建时的默认状态（开源版=需要配置，正式版=内置凭据）
-        var restored = AuroraLauncher.Core.ApiKeys.NeedsSetup == initial;
+        var restored = MCTL.Core.ApiKeys.NeedsSetup == initial;
 
         var ok = saved && restored;
         Console.WriteLine(ok ? "APIKEYS OK" : "APIKEYS FAIL");
@@ -913,25 +913,25 @@ internal static class Program
 
     private static int CommandNamesCheck()
     {
-        var items = AuroraLauncher.Core.Commands.GameData.Items;
-        var mobs = AuroraLauncher.Core.Commands.GameData.Mobs;
+        var items = MCTL.Core.Commands.GameData.Items;
+        var mobs = MCTL.Core.Commands.GameData.Mobs;
         var missing = new List<string>();
         foreach (var id in items)
-            if (AuroraLauncher.Core.Commands.GameData.ItemName(id).Length == 0) missing.Add("item:" + id);
+            if (MCTL.Core.Commands.GameData.ItemName(id).Length == 0) missing.Add("item:" + id);
         foreach (var id in mobs)
-            if (AuroraLauncher.Core.Commands.GameData.MobName(id).Length == 0) missing.Add("mob:" + id);
+            if (MCTL.Core.Commands.GameData.MobName(id).Length == 0) missing.Add("mob:" + id);
 
         Console.WriteLine($"items={items.Length} mobs={mobs.Length} missing={missing.Count}");
         foreach (var id in missing) Console.WriteLine("  missing " + id);
-        Console.WriteLine("sample: diamond_sword=" + AuroraLauncher.Core.Commands.GameData.ItemName("diamond_sword")
-                          + " creeper=" + AuroraLauncher.Core.Commands.GameData.MobName("creeper"));
+        Console.WriteLine("sample: diamond_sword=" + MCTL.Core.Commands.GameData.ItemName("diamond_sword")
+                          + " creeper=" + MCTL.Core.Commands.GameData.MobName("creeper"));
         Console.WriteLine(missing.Count == 0 ? "CMDNAMES OK" : "CMDNAMES FAIL");
         return missing.Count == 0 ? 0 : 1;
     }
 
     private static int CommandCheck()
     {
-        var give = new AuroraLauncher.Core.Commands.GiveOptions
+        var give = new MCTL.Core.Commands.GiveOptions
         {
             Target = "@p",
             ItemId = "minecraft:diamond_sword",
@@ -940,12 +940,12 @@ internal static class Program
             Lore = "第一行\n第二行",
             Unbreakable = true
         };
-        give.Enchantments.Add(new AuroraLauncher.Core.Commands.EnchantEntry("sharpness", 5));
-        give.Enchantments.Add(new AuroraLauncher.Core.Commands.EnchantEntry("unbreaking", 3));
-        give.Attributes.Add(new AuroraLauncher.Core.Commands.AttributeEntry("generic.armor", 20));
-        give.Attributes.Add(new AuroraLauncher.Core.Commands.AttributeEntry("generic.attack_damage", 10));
+        give.Enchantments.Add(new MCTL.Core.Commands.EnchantEntry("sharpness", 5));
+        give.Enchantments.Add(new MCTL.Core.Commands.EnchantEntry("unbreaking", 3));
+        give.Attributes.Add(new MCTL.Core.Commands.AttributeEntry("generic.armor", 20));
+        give.Attributes.Add(new MCTL.Core.Commands.AttributeEntry("generic.attack_damage", 10));
 
-        var summon = new AuroraLauncher.Core.Commands.SummonOptions
+        var summon = new MCTL.Core.Commands.SummonOptions
         {
             Target = "~ ~ ~",
             EntityId = "minecraft:zombie",
@@ -956,22 +956,22 @@ internal static class Program
             Head = "minecraft:diamond_helmet",
             Feet = "minecraft:diamond_boots"
         };
-        summon.Attributes.Add(new AuroraLauncher.Core.Commands.AttributeEntry("generic.armor", 30));
-        summon.Attributes.Add(new AuroraLauncher.Core.Commands.AttributeEntry("generic.attack_damage", 15));
+        summon.Attributes.Add(new MCTL.Core.Commands.AttributeEntry("generic.armor", 30));
+        summon.Attributes.Add(new MCTL.Core.Commands.AttributeEntry("generic.attack_damage", 15));
 
-        foreach (var (version, label, _) in AuroraLauncher.Core.Commands.CommandVersionExtensions.All)
+        foreach (var (version, label, _) in MCTL.Core.Commands.CommandVersionExtensions.All)
         {
             Console.WriteLine($"== {label}");
-            Console.WriteLine("GIVE  " + AuroraLauncher.Core.Commands.CommandSyntax.BuildGive(version, give));
-            Console.WriteLine("SUMMON " + AuroraLauncher.Core.Commands.CommandSyntax.BuildSummon(version, summon));
+            Console.WriteLine("GIVE  " + MCTL.Core.Commands.CommandSyntax.BuildGive(version, give));
+            Console.WriteLine("SUMMON " + MCTL.Core.Commands.CommandSyntax.BuildSummon(version, summon));
 
-            var effect = AuroraLauncher.Core.Commands.CommandCatalog.Find("effect");
+            var effect = MCTL.Core.Commands.CommandCatalog.Find("effect");
             Console.WriteLine("EFFECT " + effect.Build(version, new Dictionary<string, string>
             {
                 ["action"] = "give", ["target"] = "@p", ["effect"] = "minecraft:speed",
                 ["seconds"] = "30", ["amplifier"] = "1"
             }));
-            var title = AuroraLauncher.Core.Commands.CommandCatalog.Find("title");
+            var title = MCTL.Core.Commands.CommandCatalog.Find("title");
             Console.WriteLine("TITLE " + title.Build(version, new Dictionary<string, string>
             {
                 ["target"] = "@a", ["action"] = "title", ["text"] = "欢迎"
@@ -1019,7 +1019,7 @@ internal static class Program
     {
         Settings.Load();
         AppLibrary.Load();
-        var app = new AuroraLauncher.App();
+        var app = new MCTL.App();
         app.InitializeComponent();
 
         var dir = Path.Combine(Settings.AppDir, ".tmp", "fakecrash");
@@ -1029,7 +1029,7 @@ internal static class Program
             "java.lang.OutOfMemoryError: Java heap space\n");
 
         var session = new GameSession { VersionId = "1.21.1-neoforge-21.1.80", GameDir = dir };
-        var window = new AuroraLauncher.Views.CrashWindow(session, 1);
+        var window = new MCTL.Views.CrashWindow(session, 1);
         var content = (System.Windows.FrameworkElement)window.Content;
         window.Content = null;
 
@@ -1060,7 +1060,7 @@ internal static class Program
         Settings.Load();
         try
         {
-            var builds = await AuroraLauncher.Core.Mc.ServerCores.GetBuildsAsync(core, mc);
+            var builds = await MCTL.Core.Mc.ServerCores.GetBuildsAsync(core, mc);
             Console.WriteLine($"BUILDS {core} / {mc}: {builds.Count}");
             foreach (var build in builds.Take(3))
                 Console.WriteLine($"  {build.Value} | {build.FileName} | {build.Url}");
@@ -1087,8 +1087,8 @@ internal static class Program
         Settings.Load();
         try
         {
-            var games = await AuroraLauncher.Core.SteamService.GetDiscountedTopAsync();
-            Console.WriteLine($"STEAM TOP: {games.Count} note=\"{AuroraLauncher.Core.SteamService.LastLoadNote}\"");
+            var games = await MCTL.Core.SteamService.GetDiscountedTopAsync();
+            Console.WriteLine($"STEAM TOP: {games.Count} note=\"{MCTL.Core.SteamService.LastLoadNote}\"");
             foreach (var game in games.Take(3)) Console.WriteLine($"  {game.Name} | {game.PriceText}");
             var cache = Path.Combine(Settings.ConfigDir, "steam-featured.json");
             Console.WriteLine($"  cache exists={File.Exists(cache)}");
@@ -1106,7 +1106,7 @@ internal static class Program
         try
         {
             var text = File.ReadAllText(reportFile);
-            var analysis = AuroraLauncher.Core.Diagnostics.CrashAnalyzer.Analyze(exitCode, text, "", "", null);
+            var analysis = MCTL.Core.Diagnostics.CrashAnalyzer.Analyze(exitCode, text, "", "", null);
             Console.WriteLine(analysis.ToDisplayText());
             return 0;
         }
@@ -1244,7 +1244,7 @@ internal static class Program
 
         try
         {
-            var code = await AuroraLauncher.Core.Auth.MicrosoftAuth.RequestDeviceCodeAsync(CancellationToken.None);
+            var code = await MCTL.Core.Auth.MicrosoftAuth.RequestDeviceCodeAsync(CancellationToken.None);
             Check(!string.IsNullOrEmpty(code.UserCode), $"微软设备代码获取成功：{code.UserCode}（{code.ExpiresIn}s）");
         }
         catch (Exception ex)

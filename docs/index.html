@@ -218,7 +218,7 @@
 <main class="wrap" id="top">
   <section class="hero">
     <div>
-      <span class="tag"><span class="dot"></span>v1.30 · Windows · WPF / .NET 10</span>
+      <span class="tag"><span class="dot"></span>v1.36 · Windows · WPF / .NET 10</span>
       <h1>一站式<br />Minecraft 启动器</h1>
       <p class="lead">
         正版登录、3D 皮肤预览、版本与加载器安装、模组与整合包下载、指令生成、开服工具，
@@ -358,11 +358,11 @@ git clone https://github.com/xianyuhp/MC-Tool-Launcher.git
 cd MC-Tool-Launcher
 
 <span class="c"># 编译并运行</span>
-dotnet build src\AuroraLauncher\AuroraLauncher.csproj -c Release
-dotnet run --project src\AuroraLauncher\AuroraLauncher.csproj
+dotnet build src\MCTL\MCTL.csproj -c Release
+dotnet run --project src\MCTL\MCTL.csproj
 
 <span class="c"># 发布自包含单文件</span>
-dotnet publish src\AuroraLauncher\AuroraLauncher.csproj -c Release -r win-x64 `
+dotnet publish src\MCTL\MCTL.csproj -c Release -r win-x64 `
   --self-contained true -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
