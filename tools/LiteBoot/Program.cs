@@ -30,7 +30,7 @@ internal static class Program
 internal sealed class BootForm : Form
 {
     private const string RuntimeUrl = "https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe";
-    private const string AppVersion = "1.33.1.0";
+    private const string AppVersion = "1.34.0.0";
 
     /// <summary>仅用于自测：强制走「下载 + 安装运行时」流程。</summary>
     private static readonly bool ForceInstall =

@@ -588,8 +588,17 @@ internal static class Program
             "color" or "color-gradient" => new AuroraLauncher.Views.ColorFontView(),
             "settings" => new AuroraLauncher.Views.SettingsView(),
             "toolbox" => new AuroraLauncher.Views.ToolboxView(),
+            "server" => new AuroraLauncher.Views.ServerHelperView(),
             _ => new AuroraLauncher.Views.HomeView()
         };
+
+        if (view == "servername")
+        {
+            var dialog = new AuroraLauncher.Views.VersionNameDialog("Paper 1.21.1", "Paper-1.21.1",
+                Settings.Current.EffectiveServerRoot, serverMode: true);
+            page = (System.Windows.FrameworkElement)dialog.Content;
+            dialog.Content = null;
+        }
 
         if (view == "color-gradient" && page is AuroraLauncher.Views.ColorFontView colorView)
         {

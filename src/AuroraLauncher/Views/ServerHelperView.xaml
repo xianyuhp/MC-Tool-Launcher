@@ -62,7 +62,7 @@
                         <TextBlock Text="保存到" FontSize="11" VerticalAlignment="Center"
                                    Foreground="{DynamicResource SubTextBrush}" />
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="选择文件夹" Style="{StaticResource Btn}" Padding="10,5"
+                            <Button Content="选择根目录" Style="{StaticResource Btn}" Padding="10,5"
                                     Click="PickServerDir_Click" />
                             <Button Content="打开" Style="{StaticResource Btn}" Padding="10,5" Margin="8,0,0,0"
                                     Click="OpenServerDir_Click" />
@@ -221,7 +221,7 @@
 
                     <StackPanel Grid.Row="0">
                         <TextBlock Text="服务端实例" FontSize="12.5" FontWeight="SemiBold" />
-                        <TextBlock Text="下载的服务端会保存在启动器目录 server 下，每个核心 / 版本单独一个文件夹。"
+                        <TextBlock Text="下载时可选择保存位置并自定义实例名称；默认保存在启动器目录 server 下，每个实例单独一个文件夹。"
                                    FontSize="10" Margin="0,5,0,0" TextWrapping="Wrap"
                                    Foreground="{DynamicResource SubTextBrush}" />
                     </StackPanel>

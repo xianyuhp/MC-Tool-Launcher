@@ -23,6 +23,14 @@ public static class ServerInstances
 {
     public static string Root => Path.Combine(Settings.AppDir, "server");
 
+    /// <summary>所有服务端保存根目录：默认目录 + 下载时选过的目录。</summary>
+    public static IEnumerable<string> Roots =>
+        new[] { Root }
+            .Concat(Settings.Current.ServerRoots
+                .Where(d => !string.IsNullOrWhiteSpace(d))
+                .Select(d => d.TrimEnd('\\')))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
     public static string DirFor(string coreLabel, string mc)
     {
         var core = coreLabel.Replace(" ", "").Replace("混合端", "").Trim();
@@ -32,31 +40,36 @@ public static class ServerInstances
     public static List<ServerInstance> Scan()
     {
         var list = new List<ServerInstance>();
-        try
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in Roots)
         {
-            if (!Directory.Exists(Root)) Directory.CreateDirectory(Root);
-
-            foreach (var coreDir in Directory.EnumerateDirectories(Root))
+            try
             {
-                var jars = Directory.GetFiles(coreDir, "*.jar", SearchOption.TopDirectoryOnly);
-                if (jars.Length > 0)
+                if (!Directory.Exists(root)) Directory.CreateDirectory(root);
+                foreach (var coreDir in Directory.EnumerateDirectories(root))
                 {
-                    // 兼容旧版扁平结构：server/核心-版本/
-                    list.Add(Build(coreDir, Path.GetFileName(coreDir), jars));
-                    continue;
-                }
+                    if (!seen.Add(coreDir)) continue;
+                    var jars = Directory.GetFiles(coreDir, "*.jar", SearchOption.TopDirectoryOnly);
+                    if (jars.Length > 0)
+                    {
+                        // 兼容旧版扁平结构：server/核心-版本/，以及自定义命名的实例
+                        list.Add(Build(coreDir, Path.GetFileName(coreDir), jars));
+                        continue;
+                    }
 
-                foreach (var versionDir in Directory.EnumerateDirectories(coreDir))
-                {
-                    var versionJars = Directory.GetFiles(versionDir, "*.jar", SearchOption.TopDirectoryOnly);
-                    var label = $"{Path.GetFileName(coreDir)} · {Path.GetFileName(versionDir)}";
-                    list.Add(Build(versionDir, label, versionJars));
+                    foreach (var versionDir in Directory.EnumerateDirectories(coreDir))
+                    {
+                        if (!seen.Add(versionDir)) continue;
+                        var versionJars = Directory.GetFiles(versionDir, "*.jar", SearchOption.TopDirectoryOnly);
+                        var label = $"{Path.GetFileName(coreDir)} · {Path.GetFileName(versionDir)}";
+                        list.Add(Build(versionDir, label, versionJars));
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Logger.Warn("扫描服务端目录失败：" + ex.Message);
+            catch (Exception ex)
+            {
+                Logger.Warn("扫描服务端目录失败（" + root + "）：" + ex.Message);
+            }
         }
         return list.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }

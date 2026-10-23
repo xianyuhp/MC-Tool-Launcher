@@ -81,6 +81,10 @@ public class Settings
     public bool MultiThreadDownload { get; set; } = true;
     /// <summary>分段下载线程数（2-16）。</summary>
     public int DownloadThreads { get; set; } = 8;
+    /// <summary>服务端默认保存根目录（留空则用启动器目录下的 server）。</summary>
+    public string ServerRoot { get; set; } = "";
+    /// <summary>用过的服务端保存根目录，供下载时下拉选择。</summary>
+    public List<string> ServerRoots { get; set; } = new();
 
     // 微软账号
     public string MsRefreshToken { get; set; } = "";
@@ -121,6 +125,33 @@ public class Settings
         if (GameDirs.Any(d => d.Equals(dir, StringComparison.OrdinalIgnoreCase))) return;
         if (string.IsNullOrWhiteSpace(GameDir) && GameFolders.Count == 0) GameDir = dir;
         else GameFolders.Add(dir);
+    }
+
+    /// <summary>服务端默认保存根目录：没设置时用启动器目录下的 server。</summary>
+    [JsonIgnore]
+    public string EffectiveServerRoot =>
+        string.IsNullOrWhiteSpace(ServerRoot) ? Path.Combine(AppDir, "server") : ServerRoot.TrimEnd('\\');
+
+    /// <summary>服务端保存根目录列表：默认目录 + 用户选过的目录。</summary>
+    [JsonIgnore]
+    public List<string> ServerDirOptions
+    {
+        get
+        {
+            var list = new List<string> { EffectiveServerRoot };
+            foreach (var dir in ServerRoots)
+                if (!string.IsNullOrWhiteSpace(dir)) list.Add(dir.TrimEnd('\\'));
+            return list.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+    }
+
+    public void AddServerRoot(string dir)
+    {
+        if (string.IsNullOrWhiteSpace(dir)) return;
+        dir = dir.TrimEnd('\\');
+        ServerRoot = dir;
+        if (ServerRoots.Any(d => d.Equals(dir, StringComparison.OrdinalIgnoreCase))) return;
+        ServerRoots.Add(dir);
     }
 
     public void RemoveGameFolder(string dir)

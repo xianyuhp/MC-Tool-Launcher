@@ -22,7 +22,11 @@ public partial class ServerHelperView : UserControl, IRefreshable
 
     private List<McVersion> _versions = new();
     private string _core = "vanilla";
+    /// <summary>服务端保存根目录（下载时可选，弹窗里自定义实例名）。</summary>
+    private string _serverRoot = "";
+    /// <summary>本次下载 / 安装的服务端实例目录。</summary>
     private string _serverDir = "";
+    private string _serverMc = "";
     private bool _customServerDir;
     private CancellationTokenSource _cts;
     private bool _busy;
@@ -215,31 +219,29 @@ public partial class ServerHelperView : UserControl, IRefreshable
 
     private void CoreVersion_Changed(object sender, SelectionChangedEventArgs e) => UpdateDefaultServerDir();
 
-    /// <summary>默认保存到 启动器目录/server/核心-版本/。</summary>
+    /// <summary>默认根目录：启动器目录/server/；用户选过根目录后一直用它。</summary>
     private void UpdateDefaultServerDir()
     {
         if (_customServerDir) return;
-        var mc = CoreVersionCombo?.SelectedItem as string;
-        _serverDir = string.IsNullOrEmpty(mc)
-            ? ServerInstances.Root
-            : ServerInstances.DirFor(CoreLabel(_core), mc);
-        if (ServerDirText != null) ServerDirText.Text = _serverDir;
+        _serverRoot = Settings.Current.EffectiveServerRoot;
+        if (ServerDirText != null) ServerDirText.Text = _serverRoot;
     }
 
     private void PickServerDir_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "选择服务端保存目录",
-            InitialDirectory = Directory.Exists(_serverDir) ? _serverDir : ServerInstances.Root
+            Title = "选择服务端保存根目录",
+            InitialDirectory = Directory.Exists(_serverRoot) ? _serverRoot : Settings.Current.EffectiveServerRoot
         };
         if (dialog.ShowDialog() != true) return;
-        _serverDir = dialog.FolderName;
+        _serverRoot = dialog.FolderName;
         _customServerDir = true;
-        ServerDirText.Text = _serverDir;
+        ServerDirText.Text = _serverRoot;
     }
 
-    private void OpenServerDir_Click(object sender, RoutedEventArgs e) => OpenFolder(_serverDir);
+    private void OpenServerDir_Click(object sender, RoutedEventArgs e) =>
+        OpenFolder(!string.IsNullOrEmpty(_serverDir) ? _serverDir : _serverRoot);
 
     private void OpenServerRoot_Click(object sender, RoutedEventArgs e) => OpenFolder(ServerInstances.Root);
 
@@ -268,6 +270,19 @@ public partial class ServerHelperView : UserControl, IRefreshable
     }
 
     private string CoreLabel(string core) => ServerCores.CoreInfo(core).Label;
+
+    /// <summary>默认实例名，例如 Paper-1.21.1 / NeoForge-26.3。</summary>
+    private string SuggestServerName(string mc)
+    {
+        var name = CoreLabel(_core) switch
+        {
+            "原版 Vanilla" => "Vanilla",
+            "Arclight 混合端" => "Arclight",
+            "Mohist 混合端" => "Mohist",
+            var other => other.Replace(" ", "")
+        };
+        return McInstaller.SanitizeVersionName($"{name}-{mc}");
+    }
 
     private async void DownloadServer_Click(object sender, RoutedEventArgs e)
     {
@@ -302,7 +317,19 @@ public partial class ServerHelperView : UserControl, IRefreshable
                 build = builds.FirstOrDefault(b => b.Value == picker.SelectedVersion) ?? builds[0];
             }
 
-            _serverDir = _customServerDir ? _serverDir : ServerInstances.DirFor(CoreLabel(_core), mc);
+            // 与其他下载一致：先选保存位置，再自定义实例文件夹名
+            var dialog = new VersionNameDialog($"{CoreLabel(_core)} {mc}", SuggestServerName(mc),
+                string.IsNullOrEmpty(_serverRoot) ? Settings.Current.EffectiveServerRoot : _serverRoot,
+                serverMode: true)
+            {
+                Owner = Window.GetWindow(this)
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            _serverRoot = dialog.SelectedDir;
+            _customServerDir = true;
+            _serverDir = Path.Combine(_serverRoot, dialog.VersionName);
+            _serverMc = mc;
             ServerDirText.Text = _serverDir;
             Directory.CreateDirectory(_serverDir);
             await DownloadBuildAsync(build);
@@ -359,11 +386,10 @@ public partial class ServerHelperView : UserControl, IRefreshable
                         build.FileName.Contains("neoforge", StringComparison.OrdinalIgnoreCase))
                     {
                         MessageBox.Show(Window.GetWindow(this),
-                            "NeoForge 安装器需要联网补全依赖库（maven.neoforged.net），当前连接被拦截或超时。\n\n" +
-                            "缺少的库不会被自动下载，请手动下载安装器与依赖后重试：\n" +
-                            "https://neoforged.net/\n\n" +
-                            "后台日志里保留了安装器的原始错误，也可以改用 Forge 核心。",
-                            "NeoForge 依赖缺失", MessageBoxButton.OK, MessageBoxImage.Information);
+                            "NeoForge 服务端安装器未能完成。启动器已用镜像预先下载安装器依赖，\n" +
+                            "若仍失败，通常是安装器自身联网被拦截（maven.neoforged.net）。\n\n" +
+                            "可查看下方日志的原始错误，或到 https://neoforged.net/ 手动下载安装器后重试，也可改用 Forge 核心。",
+                            "NeoForge 安装未完成", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     throw new Exception("服务端安装器未成功完成，请打开后台日志查看原因。");
                 }
@@ -420,7 +446,28 @@ public partial class ServerHelperView : UserControl, IRefreshable
     /// <summary>运行 Forge / NeoForge 安装器（--installServer），输出实时写入日志。</summary>
     private async Task<bool> RunInstallerAsync(string installerPath)
     {
-        var java = File.Exists(Settings.Current.JavaPath) ? Settings.Current.JavaPath : "java";
+        // 与服务端版本匹配的 Java（1.20.5+ 需要 Java 21）
+        var required = JavaFinder.GuessMajor(_serverMc);
+        var java = JavaFinder.PickCompatible(required)?.Path;
+        if (string.IsNullOrEmpty(java))
+            java = File.Exists(Settings.Current.JavaPath) ? Settings.Current.JavaPath : "java";
+
+        // 安装器只会连官方 maven.neoforged.net，先用镜像把依赖放到 libraries，避免连接超时
+        try
+        {
+            StatusText.Text = "正在补齐安装器依赖（走镜像）…";
+            await McInstaller.PrefetchInstallerLibrariesAsync(installerPath, _serverDir,
+                new Progress<string>(AppendLog), _cts?.Token ?? CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            AppendLog("依赖预下载失败：" + ex.Message);
+        }
+
         var info = new ProcessStartInfo(java, $"-jar \"{installerPath}\" --installServer")
         {
             WorkingDirectory = _serverDir,
@@ -431,6 +478,7 @@ public partial class ServerHelperView : UserControl, IRefreshable
             StandardOutputEncoding = System.Text.Encoding.UTF8,
             StandardErrorEncoding = System.Text.Encoding.UTF8
         };
+        AppendLog("使用 Java：" + java);
 
         try
         {
