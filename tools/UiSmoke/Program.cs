@@ -23,6 +23,10 @@ internal static class Program
             return CommandNamesCheck();
         if (args.Length > 0 && args[0] == "apikeys")
             return ApiKeysCheck();
+        if (args.Length > 1 && args[0] == "crash")
+            return CrashCheck(args[1], args.Length > 2 ? int.Parse(args[2]) : 1);
+        if (args.Length > 1 && args[0] == "rendercrash")
+            return RenderCrash(args[1]);
         if (args.Length > 1 && args[0] == "neoversions")
             return NeoForgeVersionsCheck(args[1]).GetAwaiter().GetResult();
         if (args.Length > 2 && args[0] == "dl")
@@ -1002,6 +1006,62 @@ internal static class Program
         catch (Exception ex)
         {
             Console.WriteLine("PACK FAILED: " + ex.Message);
+            return 1;
+        }
+    }
+
+    /// <summary>用一个假的崩溃现场渲染崩溃窗口，检查分析面板与 XAML 是否正常。</summary>
+    private static int RenderCrash(string path)
+    {
+        Settings.Load();
+        AppLibrary.Load();
+        var app = new AuroraLauncher.App();
+        app.InitializeComponent();
+
+        var dir = Path.Combine(Settings.AppDir, ".tmp", "fakecrash");
+        Directory.CreateDirectory(Path.Combine(dir, "crash-reports"));
+        File.WriteAllText(Path.Combine(dir, "crash-reports", "crash-2026-01-01_00.00.00-client.txt"),
+            "Description: Rendering overlay\n\nSuspected Mods: create (create), flywheel (flywheel)\n\n" +
+            "java.lang.OutOfMemoryError: Java heap space\n");
+
+        var session = new GameSession { VersionId = "1.21.1-neoforge-21.1.80", GameDir = dir };
+        var window = new AuroraLauncher.Views.CrashWindow(session, 1);
+        var content = (System.Windows.FrameworkElement)window.Content;
+        window.Content = null;
+
+        var host = new System.Windows.Controls.Border
+        {
+            Child = content,
+            Width = 780,
+            Height = 700,
+            Background = System.Windows.Media.Brushes.Black
+        };
+        host.Measure(new Size(780, 700));
+        host.Arrange(new Rect(0, 0, 780, 700));
+        host.UpdateLayout();
+
+        var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap(780, 700, 96, 96,
+            System.Windows.Media.PixelFormats.Pbgra32);
+        bmp.Render(host);
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+        using (var fs = File.Create(path)) encoder.Save(fs);
+        Console.WriteLine("rendered -> " + path);
+        return 0;
+    }
+
+    private static int CrashCheck(string reportFile, int exitCode)
+    {
+        try
+        {
+            var text = File.ReadAllText(reportFile);
+            var analysis = AuroraLauncher.Core.Diagnostics.CrashAnalyzer.Analyze(exitCode, text, "", "", null);
+            Console.WriteLine(analysis.ToDisplayText());
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("CRASH CHECK FAILED: " + ex);
             return 1;
         }
     }

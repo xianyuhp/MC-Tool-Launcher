@@ -272,6 +272,9 @@
                             <TextBlock x:Name="ModPanelTitle" Text="模组管理" FontSize="14" FontWeight="SemiBold"
                                        VerticalAlignment="Center" Foreground="{DynamicResource HeadingBrush}" />
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <CheckBox x:Name="ModSelectModeChk" Content="选取模式" FontSize="11" VerticalAlignment="Center"
+                                          Margin="0,0,10,0" Checked="ModSelectMode_Changed" Unchecked="ModSelectMode_Changed"
+                                          ToolTip="开启后：按住鼠标左键上下拖动可连续多选；右键弹出批量操作菜单" />
                                 <Button Content="刷新" Style="{StaticResource Btn}" Padding="10,4" FontSize="11"
                                         Click="ModRefresh_Click" />
                                 <Button Content="✕" Style="{StaticResource IconBtn}" Margin="8,0,0,0"
@@ -294,7 +297,11 @@
                         <Grid Grid.Row="2" Margin="0,8,0,0">
                             <ListBox x:Name="ModList" Style="{StaticResource DarkList}"
                                      ItemContainerStyle="{StaticResource DarkItem}" SelectionMode="Extended"
-                                     SelectionChanged="ModList_SelectionChanged" FontSize="12">
+                                     SelectionChanged="ModList_SelectionChanged" FontSize="12"
+                                     PreviewMouseLeftButtonDown="ModList_PreviewMouseLeftButtonDown"
+                                     MouseMove="ModList_MouseMove"
+                                     PreviewMouseLeftButtonUp="ModList_MouseLeftButtonUp"
+                                     PreviewMouseRightButtonDown="ModList_PreviewRightDown">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
                                         <Grid AutomationProperties.Name="{Binding DisplayName}">
@@ -319,6 +326,19 @@
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
+                                <ListBox.ContextMenu>
+                                    <ContextMenu Style="{StaticResource DarkMenu}">
+                                        <MenuItem Header="更新选中模组" Click="ModUpdate_Click" />
+                                        <Separator />
+                                        <MenuItem Header="启用选中模组" Click="ModEnable_Click" />
+                                        <MenuItem Header="禁用选中模组" Click="ModDisable_Click" />
+                                        <Separator />
+                                        <MenuItem Header="打开模组所在文件夹" Click="ModOpenSelectedFolder_Click" />
+                                        <MenuItem Header="删除选中模组…" Click="ModDelete_Click" />
+                                        <Separator />
+                                        <MenuItem Header="取消选择" Click="ModClearSelection_Click" />
+                                    </ContextMenu>
+                                </ListBox.ContextMenu>
                             </ListBox>
 
                             <!-- 操作小窗 -->

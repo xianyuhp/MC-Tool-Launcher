@@ -22,7 +22,11 @@ public static class McApi
         var handler = new SocketsHttpHandler
         {
             AutomaticDecompression = DecompressionMethods.All,
-            ConnectTimeout = TimeSpan.FromSeconds(15),
+            ConnectTimeout = TimeSpan.FromSeconds(10),
+            // 复用连接但定期重建，避免 CDN 边缘节点断开后仍复用死连接
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            // HTTP/2 下允许多条并发连接，提升多文件同时下载的吞吐
+            EnableMultipleHttp2Connections = true,
             // 并发拨号：DNS 返回的多个 IP 里有坏地址时也能快速连上（修复 cdn.modrinth.com 超时）
             ConnectCallback = HttpConnection.ConnectAsync
         };
@@ -225,7 +229,21 @@ public static class McApi
     private static async Task<bool> DownloadOnceAsync(string url, string path, string sha1, CancellationToken ct,
         IProgress<double> progress)
     {
-        if (File.Exists(path) && (string.IsNullOrEmpty(sha1) || Sha1File(path).Equals(sha1, StringComparison.OrdinalIgnoreCase)))
+        // 分块进度先节流，避免大文件下载时刷爆界面线程
+        var report = progress == null ? null : new ThrottledProgress(progress);
+
+        // 已存在且校验通过就直接跳过；SHA1 计算放到后台线程，避免大文件卡住界面
+        var existsAndValid = false;
+        if (File.Exists(path))
+        {
+            if (string.IsNullOrEmpty(sha1)) existsAndValid = true;
+            else
+            {
+                var hash = await Task.Run(() => Sha1File(path), ct);
+                existsAndValid = hash.Equals(sha1, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        if (existsAndValid)
         {
             progress?.Report(1);
             return false;
@@ -236,7 +254,7 @@ public static class McApi
         try
         {
             // 支持 Range 的服务器启用分段多线程下载（类似 Motrix）
-            if (progress != null && await AcceleratedDownloader.TryDownloadAsync(Client, url, tmp, progress, ct))
+            if (report != null && await AcceleratedDownloader.TryDownloadAsync(Client, url, tmp, report, ct))
             {
                 File.Move(tmp, path, true);
                 progress.Report(1);
@@ -247,7 +265,7 @@ public static class McApi
             {
                 response.EnsureSuccessStatusCode();
                 var total = response.Content.Headers.ContentLength ?? -1;
-                progress?.Report(0);
+                report?.Report(0);
                 await using var fs = File.Create(tmp);
                 await using var stream = await response.Content.ReadAsStreamAsync(ct);
                 var buffer = new byte[81920];
@@ -257,7 +275,7 @@ public static class McApi
                 {
                     await fs.WriteAsync(buffer.AsMemory(0, n), ct);
                     read += n;
-                    if (total > 0) progress?.Report(Math.Min(1.0, (double)read / total));
+                    if (total > 0) report?.Report(Math.Min(1.0, (double)read / total));
                 }
             }
             File.Move(tmp, path, true);
@@ -270,7 +288,10 @@ public static class McApi
         }
     }
 
-    /// <summary>并发下载，最多 8 线程；镜像地址失败会自动回退官方。</summary>
+    /// <summary>
+    /// 并发下载多个文件（默认 16 路，可在设置里调），镜像失败自动回退官方。
+    /// 进度按 120ms 节流上报，避免几千个资源文件把界面线程刷爆。
+    /// </summary>
     public static async Task DownloadManyAsync(IEnumerable<(string Url, string Path, string Sha1)> files,
         Action<int, int> progress, CancellationToken ct)
     {
@@ -278,22 +299,38 @@ public static class McApi
             .GroupBy(f => f.Path, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .ToList();
-        int done = 0, total = list.Count;
-        using var semaphore = new SemaphoreSlim(8);
-        var tasks = list.Select(async f =>
+        var total = list.Count;
+        var done = 0;
+        var concurrency = Math.Clamp(Settings.Current.DownloadThreads, 4, 16);
+        using var semaphore = new SemaphoreSlim(concurrency);
+
+        // 节流：同一时间只让一个线程触发界面更新
+        long lastTicks = 0;
+        void Notify(bool force)
+        {
+            var now = Environment.TickCount64;
+            var previous = Interlocked.Read(ref lastTicks);
+            if (!force && now - previous < 120) return;
+            if (Interlocked.CompareExchange(ref lastTicks, now, previous) != previous) return;
+            progress(Volatile.Read(ref done), total);
+        }
+
+        var tasks = list.Select(f => Task.Run(async () =>
         {
             await semaphore.WaitAsync(ct);
             try
             {
                 await DownloadAsync(f.Url, f.Path, f.Sha1, ct, Mirror.ToOfficial(f.Url));
-                var n = Interlocked.Increment(ref done);
-                progress(n, total);
+                Interlocked.Increment(ref done);
+                Notify(false);
             }
             finally
             {
                 semaphore.Release();
             }
-        });
+        }, ct));
+
         await Task.WhenAll(tasks);
+        Notify(true);
     }
 }

@@ -452,6 +452,78 @@ public partial class HomeView : UserControl, IRefreshable
 
     private void ModList_SelectionChanged(object sender, SelectionChangedEventArgs e) => UpdateModSelection();
 
+    // ---------------- 模组多选与右键菜单 ----------------
+
+    private int _modDragAnchor = -1;
+    private bool _modDragging;
+
+    /// <summary>切换选取模式：开启后按住左键上下拖动即可连续多选（Ctrl / Shift 多选始终可用）。</summary>
+    private void ModSelectMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (ModList == null) return;
+        var on = ModSelectModeChk.IsChecked == true;
+        ModList.SelectedItems.Clear();
+        ModStatusText.Text = on
+            ? "选取模式：按住左键上下拖动可连续选择，右键可批量操作"
+            : "已退出选取模式（仍可用 Ctrl / Shift 多选）";
+    }
+
+    /// <summary>选取模式下按下左键：记住起点并接管鼠标，由拖动过程决定选中范围。</summary>
+    private void ModList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ModSelectModeChk?.IsChecked != true) return;
+        if (ItemsControl.ContainerFromElement(ModList, e.OriginalSource as DependencyObject) is not ListBoxItem item) return;
+        if (item.DataContext is not InstalledMod) return;
+
+        _modDragAnchor = ModList.Items.IndexOf(item.DataContext);
+        ModList.SelectedItems.Clear();
+        ModList.SelectedItems.Add(item.DataContext);
+        _modDragging = true;
+        ModList.CaptureMouse();
+        e.Handled = true;
+    }
+
+    /// <summary>拖动过程中按起点到当前项的范围实时选中。</summary>
+    private void ModList_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_modDragging || e.LeftButton != MouseButtonState.Pressed) return;
+        var element = ModList.InputHitTest(e.GetPosition(ModList)) as DependencyObject;
+        if (ItemsControl.ContainerFromElement(ModList, element) is not ListBoxItem item) return;
+        if (item.DataContext is not InstalledMod) return;
+
+        var index = ModList.Items.IndexOf(item.DataContext);
+        if (index < 0 || _modDragAnchor < 0) return;
+
+        var from = Math.Min(_modDragAnchor, index);
+        var to = Math.Max(_modDragAnchor, index);
+        ModList.SelectedItems.Clear();
+        for (var i = from; i <= to; i++) ModList.SelectedItems.Add(ModList.Items[i]);
+    }
+
+    /// <summary>松开左键结束框选。</summary>
+    private void ModList_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_modDragging) return;
+        _modDragging = false;
+        ModList.ReleaseMouseCapture();
+    }
+
+    /// <summary>右键时若点到的模组未被选中，先选中它，菜单操作才有对象。</summary>
+    private void ModList_PreviewRightDown(object sender, MouseButtonEventArgs e)
+    {
+        if (ItemsControl.ContainerFromElement(ModList, e.OriginalSource as DependencyObject) is not ListBoxItem item) return;
+        if (item.DataContext is not InstalledMod mod) return;
+        if (!ModList.SelectedItems.Contains(mod)) ModList.SelectedItem = mod;
+    }
+
+    /// <summary>打开当前选中模组所在的文件夹。</summary>
+    private void ModOpenSelectedFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = SelectedMods();
+        var dir = selected.Count > 0 ? Path.GetDirectoryName(selected[0].Path) : null;
+        OpenFolder(string.IsNullOrEmpty(dir) ? InstancePaths.Ensure(InstancePaths.Mods) : dir);
+    }
+
     private void UpdateModSelection()
     {
         if (ModSelectionText == null) return;

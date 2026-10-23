@@ -192,25 +192,33 @@ public static class McInstaller
 
             if (File.Exists(indexPath))
             {
-                using var indexDoc = JsonDocument.Parse(File.ReadAllText(indexPath));
-                if (indexDoc.RootElement.TryGetProperty("objects", out var objects))
+                // 资源清单可能有几千条，解析与路径拼接放到后台线程，避免界面无响应
+                var assetFiles = await Task.Run(() =>
                 {
-                    var assetFiles = new List<(string Url, string Path, string Sha1)>();
+                    var files = new List<(string Url, string Path, string Sha1)>();
+                    using var indexDoc = JsonDocument.Parse(File.ReadAllText(indexPath));
+                    if (!indexDoc.RootElement.TryGetProperty("objects", out var objects)) return files;
                     foreach (var obj in objects.EnumerateObject())
                     {
                         var hash = VersionJson.GetString(obj.Value, "hash");
                         if (string.IsNullOrEmpty(hash) || hash.Length < 2) continue;
                         var target = Path.Combine(gameDir, "assets", "objects", hash[..2], hash);
-                        assetFiles.Add((Mirror.AssetObjectUrl(hash, McApi.UsingMirror), target, hash));
+                        files.Add((Mirror.AssetObjectUrl(hash, McApi.UsingMirror), target, hash));
                     }
+                    return files;
+                }, ct);
+
+                if (assetFiles.Count > 0)
+                {
                     log.Report($"下载资源文件（{assetFiles.Count} 个对象，约数百 MB，请耐心等待）");
-                    await McApi.DownloadManyAsync(assetFiles, (n, t) => progress.Report(0.5 + 0.45 * n / Math.Max(t, 1)), ct);
+                    await McApi.DownloadManyAsync(assetFiles,
+                        (n, t) => progress.Report(0.5 + 0.45 * n / Math.Max(t, 1)), ct);
                 }
             }
         }
 
-        // natives 解压
-        ExtractNatives(gameDir, versionDir, libraries, log, ct);
+        // natives 解压（同步解压会卡界面，放后台线程）
+        await Task.Run(() => ExtractNatives(gameDir, versionDir, libraries, log, ct), ct);
         progress.Report(1);
         log.Report("安装完成：" + versionId);
         return versionId;

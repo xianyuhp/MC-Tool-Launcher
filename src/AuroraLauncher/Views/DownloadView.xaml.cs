@@ -1426,22 +1426,17 @@ public partial class DownloadView : UserControl, IRefreshable
         await InstallAsync("下载 " + item.Title, async (log, progress, ct) =>
         {
             var installDir = Path.GetDirectoryName(target) ?? targetDir;
-            foreach (var dependency in missing)
-            {
-                var dependencyName = ModNamePrefix.Apply(
-                    dependency.File.FileName,
-                    ModNamePrefix.Describe(dependency.Source, dependency.ProjectId, "", dependency.Name),
-                    Settings.Current.ModPrefixMode);
-                var dependencyTarget = Path.Combine(installDir, dependencyName);
-                log.Report($"补齐前置：{dependency.Name} → {dependencyName}");
-                await McApi.DownloadAsync(dependency.File.Url, dependencyTarget, dependency.File.Sha1, ct);
-                log.Report("前置已安装：" + dependencyTarget);
-            }
+
+            // 前置占前 35% 进度，主文件占剩下的；每个文件内部再细分，进度条不会再“卡住不动”
+            var dependencySpan = missing.Count > 0 ? 0.35 : 0.0;
+            if (missing.Count > 0)
+                await AuroraLauncher.Core.Mods.ModDependencyInstaller.InstallAsync(
+                    missing, installDir, log, progress, 0, dependencySpan, ct);
 
             log.Report($"下载 {file.FileName}（{file.Loaders}）" + (file.Sha1.Length > 0 ? "，校验 SHA1" : ""));
             _context.ReportFile(target);
-            progress.Report(0);
-            await McApi.DownloadAsync(file.Url, target, file.Sha1, ct, progress);
+            var mainProgress = new Progress<double>(p => progress.Report(dependencySpan + p * (1 - dependencySpan)));
+            await McApi.DownloadAsync(file.Url, target, file.Sha1, ct, mainProgress);
             log.Report("已保存到 " + target);
         }, $"「{item.Title}」已保存到 {target}");
     }
